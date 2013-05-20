@@ -4,6 +4,16 @@ A header-only library for parsing [TOML][toml] configuration files.
 It is reasonably conformant, with the exception of unicode characters in
 strings.
 
+Alternatives: 
+- [ctoml][ctoml] is another C++11 implementation of a TOML
+  parser. The approach taken in both for parsing is similar, but the output
+  format is dramatically different---ctoml uses a compact `union` approach
+  where `cpptoml` uses an inheritance hierarchy with type erasure. This means
+  that `cpptoml` will use familiar standard types like `std::string` and
+  `std::vector`, but potentially at the expense of runtime performance.
+- [libtoml][libtoml] is a C implementation of a TOML parser, which can be
+  linked to from your C++ programs easily.
+
 ## Test Results
 The following two tests are the only failing tests from [the toml-test
 suite][toml-test].
@@ -39,3 +49,5 @@ example usage.
 
 [toml]: https://github.com/mojombo/toml
 [toml-test]: https://github.com/BurntSushi/toml-test
+[ctoml]: https://github.com/evilncrazy/ctoml
+[libtoml]: https://github.com/ajwans/libtoml
