@@ -1,6 +1,8 @@
 # cpptoml
 A header-only library for parsing [TOML][toml] configuration files.
 
+Targets: d9f4282287967bf2f42ac4426dc1cf69ec608b10
+
 It is reasonably conformant, with the exception of unicode characters in
 strings.
 
