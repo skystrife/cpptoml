@@ -216,7 +216,7 @@ class toml_group : public toml_base {
         /**
          * Obtains a toml_group for a given key, if possible.
          */
-        std::shared_ptr<toml_group> get_group( const std::string & key ) {
+        std::shared_ptr<toml_group> get_group( const std::string & key ) const {
             if( get( key )->is_group() )
                 return std::static_pointer_cast<toml_group>( get( key ) );
             else
@@ -226,7 +226,7 @@ class toml_group : public toml_base {
         /**
          * Obtains a toml_group_array for a given key, if possible.
          */
-        std::shared_ptr<toml_group_array> get_group_array( const std::string & key ) {
+        std::shared_ptr<toml_group_array> get_group_array( const std::string & key ) const {
             if( get( key )->is_group_array() )
                 return std::static_pointer_cast<toml_group_array>( get( key ) );
             else
@@ -238,7 +238,7 @@ class toml_group : public toml_base {
          * to the teplate parameter from a given key.
          */
         template <class T>
-        T * get_as( const std::string & key ) {
+        T * get_as( const std::string & key ) const {
             if( !contains( key ) )
                 return nullptr;
             if( auto v = get( key )->as<T>() )
