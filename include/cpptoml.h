@@ -252,7 +252,22 @@ class toml_group : public toml_base {
         void insert( const std::string & key, const std::shared_ptr<toml_base> & value ) {
             map_[ key ] = value;
         }
-        
+
+        /**
+         * Convenience shorthand for adding a simple element to the
+         * keygroup.
+         */
+        template <class T>
+        void insert( const std::string & key, T && value,
+                     typename std::enable_if<std::is_same<T, std::string>::value
+                                             || std::is_same<T, int64_t>::value
+                                             || std::is_same<T, double>::value
+                                             || std::is_same<T, bool>::value
+                                             || std::is_same<T, std::tm>::value
+                                            >::type * = 0 ) {
+            map_[ key ] = std::make_shared<toml_value<T>>( value );
+        }
+
         friend std::ostream & operator<<( std::ostream & stream, const toml_group & group );
         
         void print( std::ostream & stream ) const override {
@@ -282,6 +297,10 @@ class toml_group : public toml_base {
         std::unordered_map<std::string, std::shared_ptr<toml_base>> map_;
 };
 
+/**
+ * Convenience function to avoid having to type "template" when getting a
+ * value out of a keygroup.
+ */
 template <class T>
 T * get_as( const cpptoml::toml_group & group, const std::string & key ) {
         return group.get_as<T>( key );
