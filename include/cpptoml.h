@@ -102,13 +102,13 @@ class toml_value : public toml_base {
 
 // I don't think I'll ever comprehend why this is needed...
 template <>
-toml_value<std::tm>::toml_value( const std::tm & date ) {
+inline toml_value<std::tm>::toml_value( const std::tm & date ) {
     data_ = date;
 }
 
 // specializations for printing nicely
 template <>
-void toml_value<bool>::print( std::ostream & stream ) const {
+inline void toml_value<bool>::print( std::ostream & stream ) const {
     if( data_ )
         stream << "true";
     else
@@ -116,12 +116,12 @@ void toml_value<bool>::print( std::ostream & stream ) const {
 }
 
 template <>
-void toml_value<std::tm>::print( std::ostream & stream ) const {
+inline void toml_value<std::tm>::print( std::ostream & stream ) const {
     stream << std::put_time( &data_, "%c %Z" );
 }
 
 template <>
-void toml_value<std::vector<std::shared_ptr<toml_base>>>::print( std::ostream & stream ) const {
+inline void toml_value<std::vector<std::shared_ptr<toml_base>>>::print( std::ostream & stream ) const {
     stream << "[ ";
     auto it = data_.begin();
     while( it != data_.end() ) {
@@ -133,7 +133,7 @@ void toml_value<std::vector<std::shared_ptr<toml_base>>>::print( std::ostream & 
 }
 
 template <class T>
-std::shared_ptr<toml_value<T>> toml_base::as() {
+inline std::shared_ptr<toml_value<T>> toml_base::as() {
     if( auto v = std::dynamic_pointer_cast<toml_value<T>>( shared_from_this() ) )
         return v;
     else
@@ -294,7 +294,7 @@ void toml_group_array::print( std::ostream & stream, size_t depth, const std::st
     }
 }
 
-std::ostream & operator<<( std::ostream & stream, const toml_group & group ) {
+inline std::ostream & operator<<( std::ostream & stream, const toml_group & group ) {
     group.print( stream );
     return stream;
 }
