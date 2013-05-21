@@ -179,7 +179,7 @@ class toml_group : public toml_base {
          * Obtains the toml_base for a given key.
          * @throw std::out_of_range if the key does not exist
          */
-        std::shared_ptr<toml_base> get( const std::string & key ) {
+        std::shared_ptr<toml_base> get( const std::string & key ) const {
             return map_.at( key );
         }
         
@@ -232,6 +232,11 @@ class toml_group : public toml_base {
         }
         std::unordered_map<std::string, std::shared_ptr<toml_base>> map_;
 };
+
+template <class T>
+T * get_as( const cpptoml::toml_group & group, const std::string & key ) {
+        return group.get_as<T>( key );
+}
 
 std::ostream & operator<<( std::ostream & stream, const toml_group & group ) {
     group.print( stream );
