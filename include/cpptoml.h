@@ -42,6 +42,13 @@ class toml_base : public std::enable_shared_from_this<toml_base> {
         virtual bool is_group() const {
             return false;
         }
+
+        /**
+         * Determines if the given TOML element is an array of groups.
+         */
+        virtual bool is_group_array() const {
+            return false;
+        }
         
         /**
          * Prints the TOML element to the given stream.
@@ -133,11 +140,34 @@ std::shared_ptr<toml_value<T>> toml_base::as() {
         return nullptr;
 }
 
+class toml_group;
+
+class toml_group_array : public toml_base {
+    friend class toml_group;
+    public:
+        virtual bool is_group_array() const override {
+            return true;
+        }
+        
+        std::vector<std::shared_ptr<toml_group>> & array() {
+            return array_;
+        }
+        
+        void print( std::ostream & stream ) const override {
+            print( stream, 0, "" );
+        }
+    private:
+        void print( std::ostream & stream, size_t depth, const std::string & key ) const;
+        std::vector<std::shared_ptr<toml_group>> array_;
+};
+
+
 /**
  * Represents a TOML keygroup.
  */
 class toml_group : public toml_base {
     public:
+        friend class toml_group_array;
         /**
          * toml_groups can be iterated over.
          */
@@ -219,24 +249,38 @@ class toml_group : public toml_base {
     private:
         void print( std::ostream & stream, size_t depth ) const {
             for( auto & p : map_ ) {
-                stream << std::string( depth, '\t' )
-                    << p.first << " = ";
-                if( auto g = std::dynamic_pointer_cast<toml_group>( p.second ) ) {
-                    stream << '\n';
-                    g->print( stream, depth + 1 );
+                if( p.second->is_group_array() ) {
+                    auto ga = std::dynamic_pointer_cast<toml_group_array>( p.second );
+                    ga->print( stream, depth, p.first );
                 } else {
-                    p.second->print( stream );
-                    stream << '\n';
+                    stream << std::string( depth, '\t' )
+                        << p.first << " = ";
+                    if( p.second->is_group() ) {
+                        auto g = static_cast<toml_group *>( p.second.get() );
+                        stream << '\n';
+                        g->print( stream, depth + 1 );
+                    } else {
+                        p.second->print( stream );
+                        stream << '\n';
+                    }
                 }
             }
         }
         std::unordered_map<std::string, std::shared_ptr<toml_base>> map_;
 };
 
+void toml_group_array::print( std::ostream & stream, size_t depth, const std::string & key ) const {
+    for( auto g : array_ ) {
+        stream << std::string( depth, '\t' ) << "[[" << key << "]]\n";
+        g->print( stream, depth + 1 );
+    }
+}
+
 std::ostream & operator<<( std::ostream & stream, const toml_group & group ) {
     group.print( stream );
     return stream;
 }
+
 
 /**
  * Exception class for all TOML parsing errors.
@@ -289,6 +333,17 @@ class parser {
                           toml_group * & curr_group ) {
             // remove the beginning and ending keygroup markers
             ++it;
+            if( it == end )
+                throw toml_parse_exception{ "Unexpected end of keygroup" };
+            if( *it == '[' )
+                parse_group_array( it, end, curr_group );
+            else
+                parse_single_group( it, end, curr_group );
+        }
+
+        void parse_single_group( std::string::iterator & it,
+                                 const std::string::iterator & end,
+                                 toml_group * & curr_group ) {
             auto ob = std::find( it, end, '[' );
             if( ob != end )
                 throw toml_parse_exception{ "Cannot have [ in keygroup name" };
@@ -311,9 +366,12 @@ class parser {
                 
                 if( curr_group->contains( part ) ) {
                     auto b = curr_group->get( part );
-                    if( !b->is_group() )
+                    if( b->is_group() )
+                        curr_group = static_cast<toml_group *>( b.get() );
+                    else if( b->is_group_array() )
+                        curr_group = std::static_pointer_cast<toml_group_array>( b )->array().back().get();
+                    else
                         throw toml_parse_exception{ "Keygroup already exists as a value" };
-                    curr_group = static_cast<toml_group *>( b.get() );
                 } else {
                     curr_group->insert( part, std::make_shared<toml_group>() );
                     curr_group = static_cast<toml_group *>( curr_group->get( part ).get() );
@@ -322,6 +380,57 @@ class parser {
             ++it;
             consume_whitespace( it, end );
             eol_or_comment( it, end );
+        }
+        
+        void parse_group_array( std::string::iterator & it,
+                                const std::string::iterator & end,
+                                toml_group * & curr_group ) {
+            ++it;
+            auto ob = std::find( it, end, '[' );
+            if( ob != end )
+                throw toml_parse_exception{ "Cannot have [ in keygroup name" };
+            auto kg_end = std::find( it, end, ']' );
+            if( kg_end == end )
+                throw toml_parse_exception{ "Unterminated keygroup array" };
+            auto kga_end = kg_end;
+            if( *++kga_end != ']' )
+                throw toml_parse_exception{ "Invalid keygroup array specifier" };
+            while( it != kg_end ) {
+                auto dot = std::find( it, kg_end, '.' );
+                std::string part{ it, dot };
+                if( part.empty() )
+                    throw toml_parse_exception{ "Empty keygroup part" };
+                it = dot;
+                if( it != kg_end )
+                    ++it;
+                if( curr_group->contains( part ) ) {
+                    auto b = curr_group->get( part );
+                    if( it == kg_end ) {
+                        if( !b->is_group_array() )
+                            throw toml_parse_exception{ "Expected keygroup array" };
+                        auto v = std::static_pointer_cast<toml_group_array>( b );
+                        v->array().push_back( std::make_shared<toml_group>() );
+                        curr_group = v->array().back().get();
+                    } else {
+                        if( b->is_group() )
+                            curr_group = static_cast<toml_group *>( b.get() );
+                        else if( b->is_group_array() )
+                            curr_group = std::static_pointer_cast<toml_group_array>( b )->array().back().get();
+                        else
+                            throw toml_parse_exception{ "Keygroup already exists as a value" };
+                    }
+                } else {
+                    if( it == kg_end ) {
+                        curr_group->insert( part, std::make_shared<toml_group_array>() );
+                        auto arr = std::static_pointer_cast<toml_group_array>( curr_group->get( part ) );
+                        arr->array().push_back( std::make_shared<toml_group>() );
+                        curr_group = arr->array().back().get();
+                    } else {
+                        curr_group->insert( part, std::make_shared<toml_group>() );
+                        curr_group = static_cast<toml_group *>( curr_group->get( part ).get() );
+                    }
+                }
+            }
         }
         
         void parse_key_value( std::string::iterator & it,
