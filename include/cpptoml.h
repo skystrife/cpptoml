@@ -306,7 +306,7 @@ T * get_as( const cpptoml::toml_group & group, const std::string & key ) {
         return group.get_as<T>( key );
 }
 
-void toml_group_array::print( std::ostream & stream, size_t depth, const std::string & key ) const {
+inline void toml_group_array::print( std::ostream & stream, size_t depth, const std::string & key ) const {
     for( auto g : array_ ) {
         stream << std::string( depth, '\t' ) << "[[" << key << "]]\n";
         g->print( stream, depth + 1 );
@@ -368,7 +368,7 @@ class parser {
         void parse_group( std::string::iterator & it, 
                           const std::string::iterator & end,
                           toml_group * & curr_group ) {
-            // remove the beginning and ending keygroup markers
+            // remove the beginning keygroup marker
             ++it;
             if( it == end )
                 throw toml_parse_exception{ "Unexpected end of keygroup" };
@@ -400,7 +400,7 @@ class parser {
                 it = dot;
                 if( it != kg_end )
                     ++it;
-                
+
                 if( curr_group->contains( part ) ) {
                     auto b = curr_group->get( part );
                     if( b->is_group() )
