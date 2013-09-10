@@ -803,6 +803,11 @@ class parser {
         std::unordered_set<std::string> groups_;
 };
 
+toml_group parse_file( const std::string & filename ) {
+    std::ifstream file{ filename };
+    parser p{ file };
+    return p.parse();
 }
 
+}
 #endif

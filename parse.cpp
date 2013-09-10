@@ -8,9 +8,7 @@ int main( int argc, char ** argv ) {
         std::cout << "Usage: " << argv[0] << " filename" << std::endl;
         return 1;
     }
-    std::ifstream file{ argv[1] };
-    cpptoml::parser p{ file };
-    cpptoml::toml_group g = p.parse();
+    cpptoml::toml_group g = cpptoml::parse_file( argv[1] );
     std::cout << g << std::endl;
     return 0;
 }
