@@ -680,8 +680,15 @@ class parser {
         std::unordered_set<std::string> groups_;
 };
 
+/**
+ * Utility function to parse a file as a TOML file. Returns the root group.
+ * Throws a toml_parse_exception if the file cannot be opened.
+ */
 toml_group parse_file( const std::string & filename ) {
     std::ifstream file{ filename };
+    if( !file.is_open() )
+        throw toml_parse_exception{ filename
+                                    + " could not be opened for parsing" };
     parser p{ file };
     return p.parse();
 }
