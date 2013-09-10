@@ -418,7 +418,6 @@ class parser {
             consume_whitespace( it, end );
             eol_or_comment( it, end );
         }
-<<<<<<< HEAD
 
         void parse_group_array( std::string::iterator & it,
                                 const std::string::iterator & end,
