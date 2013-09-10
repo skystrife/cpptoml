@@ -148,11 +148,11 @@ class toml_group_array : public toml_base {
         virtual bool is_group_array() const override {
             return true;
         }
-        
+
         std::vector<std::shared_ptr<toml_group>> & array() {
             return array_;
         }
-        
+
         void print( std::ostream & stream ) const override {
             print( stream, 0, "" );
         }
@@ -419,7 +419,7 @@ class parser {
             eol_or_comment( it, end );
         }
 <<<<<<< HEAD
-        
+
         void parse_group_array( std::string::iterator & it,
                                 const std::string::iterator & end,
                                 toml_group * & curr_group ) {
