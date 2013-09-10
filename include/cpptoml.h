@@ -20,10 +20,10 @@
 #include <unordered_set>
 
 namespace cpptoml {
-    
+
 template <class T>
 class toml_value;
-    
+
 /**
  * A generic base TOML value used for type erasure.
  */
@@ -35,7 +35,7 @@ class toml_base : public std::enable_shared_from_this<toml_base> {
         virtual bool is_value() const {
             return false;
         }
-        
+
         /**
          * Determines if the given TOML element is a group.
          */
@@ -49,12 +49,12 @@ class toml_base : public std::enable_shared_from_this<toml_base> {
         virtual bool is_group_array() const {
             return false;
         }
-        
+
         /**
          * Prints the TOML element to the given stream.
          */
         virtual void print( std::ostream & stream ) const = 0;
-        
+
         /**
          * Attempts to coerce the TOML element into a concrete TOML value
          * of type T.
@@ -73,29 +73,29 @@ class toml_value : public toml_base {
          * Constructs a value from the given data.
          */
         toml_value( const T & val ) : data_{ val } { }
-        
+
         bool is_value() const override {
             return true;
         }
-        
+
         /**
          * Gets the data associated with this value.
          */
         T & value() {
             return data_;
         }
-        
+
         /**
          * Gets the data associated with this value. Const version.
          */
         const T & value() const {
             return data_;
         }
-        
+
         void print( std::ostream & stream ) const override {
             stream << data_;
         }
-        
+
     private:
         T data_;
 };
@@ -177,34 +177,34 @@ class toml_group : public toml_base {
          * toml_groups can be iterated over. Const version.
          */
         using const_iterator = std::unordered_map<std::string, std::shared_ptr<toml_base>>::const_iterator;
-        
+
         iterator begin() {
             return map_.begin();
         }
-        
+
         const_iterator begin() const {
             return map_.begin();
         }
-        
+
         iterator end() {
             return map_.end();
         }
-        
+
         const_iterator end() const {
             return map_.end();
         }
-        
+
         bool is_group() const override {
             return true;
         }
-        
+
         /**
          * Determines if ths key group contains the given key.
          */
         bool contains( const std::string & key ) const {
             return map_.find( key ) != map_.end();
         }
-        
+
         /**
          * Obtains the toml_base for a given key.
          * @throw std::out_of_range if the key does not exist
@@ -212,7 +212,7 @@ class toml_group : public toml_base {
         std::shared_ptr<toml_base> get( const std::string & key ) const {
             return map_.at( key );
         }
-        
+
         /**
          * Obtains a toml_group for a given key, if possible.
          */
@@ -222,7 +222,7 @@ class toml_group : public toml_base {
             else
                 return nullptr;
         }
-        
+
         /**
          * Obtains a toml_group_array for a given key, if possible.
          */
@@ -245,7 +245,7 @@ class toml_group : public toml_base {
                 return &v->value();
             return nullptr;
         }
-        
+
         /**
          * Adds an element to the keygroup.
          */
@@ -269,11 +269,11 @@ class toml_group : public toml_base {
         }
 
         friend std::ostream & operator<<( std::ostream & stream, const toml_group & group );
-        
+
         void print( std::ostream & stream ) const override {
             print( stream, 0 );
         }
-        
+
     private:
         void print( std::ostream & stream, size_t depth ) const {
             for( auto & p : map_ ) {
@@ -343,9 +343,9 @@ class parser {
          */
         toml_group parse() {
             toml_group root;
-            
+
             toml_group * curr_group = &root;
-            
+
             while( std::getline( input_, line_ ) ) {
                 auto it = line_.begin();
                 auto end = line_.end();
@@ -362,10 +362,10 @@ class parser {
             groups_.clear();
             return root;
         }
-    
+
     private:
-        
-        void parse_group( std::string::iterator & it, 
+
+        void parse_group( std::string::iterator & it,
                           const std::string::iterator & end,
                           toml_group * & curr_group ) {
             // remove the beginning keygroup marker
@@ -418,6 +418,7 @@ class parser {
             consume_whitespace( it, end );
             eol_or_comment( it, end );
         }
+<<<<<<< HEAD
         
         void parse_group_array( std::string::iterator & it,
                                 const std::string::iterator & end,
@@ -469,7 +470,7 @@ class parser {
                 }
             }
         }
-        
+
         void parse_key_value( std::string::iterator & it,
                               std::string::iterator & end,
                               toml_group * & curr_group ) {
@@ -498,7 +499,7 @@ class parser {
             consume_whitespace( it, end );
             return key;
         }
-        
+
         enum class parse_type {
             STRING = 1, DATE, INT, FLOAT, BOOL, ARRAY
         };
@@ -538,7 +539,7 @@ class parser {
             }
             throw toml_parse_exception{ "Failed to parse value type" };
         }
-        
+
         parse_type determine_number_type( const std::string::iterator & it,
                                           const std::string::iterator & end ) {
             // determine if we are an integer or a float
@@ -624,21 +625,21 @@ class parser {
                 return parse_int( it, check_it );
             }
         }
-        
+
         std::shared_ptr<toml_value<int64_t>> parse_int( std::string::iterator & it,
                                                   const std::string::iterator & end ) {
             std::string v{ it, end };
             it = end;
             return std::make_shared<toml_value<int64_t>>( std::stoll( v ) );
         }
-        
+
         std::shared_ptr<toml_value<double>> parse_float( std::string::iterator & it,
                                                 const std::string::iterator & end ) {
             std::string v{ it, end };
             it = end;
             return std::make_shared<toml_value<double>>( std::stod( v ) );
         }
-        
+
         std::shared_ptr<toml_value<bool>> parse_bool( std::string::iterator & it,
                                                const std::string::iterator & end ) {
             auto boolend = std::find_if( it, end, []( char c ) {
@@ -653,7 +654,7 @@ class parser {
             else
                 throw toml_parse_exception{ "Attempted to parse invalid boolean value" };
         }
-        
+
         std::shared_ptr<toml_value<std::tm>> parse_date( std::string::iterator & it,
                                                const std::string::iterator & end ) {
             auto date_end = std::find_if( it, end, [this]( char c ) {
@@ -674,7 +675,7 @@ class parser {
             date.tm_hour = stoi( results[4] );
             date.tm_min = stoi( results[5] );
             date.tm_sec = stoi( results[6] );
-            
+
             // correctly fill in missing values
             // "portable" version of timegm()
             char * tz = getenv( "TZ" );
@@ -687,10 +688,10 @@ class parser {
             else
                 unsetenv( "TZ" );
             tzset();
-            
+
             return std::make_shared<toml_value<std::tm>>( date );
         }
-        
+
         std::shared_ptr<toml_base> parse_array( std::string::iterator & it,
                                                 std::string::iterator & end ) {
             // this gets ugly because of the "heterogenous" restriction:
@@ -700,10 +701,10 @@ class parser {
             // because of the latter portion, we don't really have a choice
             // but to represent them as arrays of base values...
             ++it;
-            
+
             // ugh---have to read the first value to determine array type...
             skip_whitespace_and_comments( it, end );
-            
+
             // edge case---empty array
             if( *it == ']' ) {
                 ++it;
@@ -765,28 +766,28 @@ class parser {
                 consume_whitespace( start, end );
             }
         }
-        
+
         void consume_whitespace( std::string::iterator & it, const std::string::iterator & end ) {
             while( it != end && ( *it == ' ' || *it == '\t' ) )
                 ++it;
         }
-        
+
         void consume_backwards_whitespace( std::string::iterator & back,
                                            const std::string::iterator & front ) {
             while( back != front && (*back == ' ' || *back == '\t' ) )
                 --back;
         }
-        
-        void eol_or_comment( const std::string::iterator & it, 
+
+        void eol_or_comment( const std::string::iterator & it,
                              const std::string::iterator & end ) {
             if( it != end && *it != '#' )
                 throw toml_parse_exception{ "Unidentified trailing character " + std::string{ *it } + "---did you forget a '#'?" };
         }
-        
+
         bool is_number( char c ) {
             return c >= '0' && c <= '9';
         }
-        
+
         bool is_date( const std::string::iterator & it,
                       const std::string::iterator & end ) {
             auto date_end = std::find_if( it, end, [this]( char c ) {
@@ -796,7 +797,7 @@ class parser {
             std::regex pattern{ "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z" };
             return std::regex_match( to_match, pattern );
         }
-        
+
         std::istream & input_;
         std::string line_;
         std::unordered_set<std::string> groups_;
