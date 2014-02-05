@@ -8,10 +8,12 @@ include_directories( "include/" )
 if( UNIX )
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic" )
-    if( "#{CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" )
+    set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_CXX_EXE_LINKER_FLAGS} -ldl" )
+    if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" )
         if( USE_LIBCXX )
             set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" )
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++abi")
+            set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -lc++abi")
         endif()
     endif()
 endif()
@@ -27,15 +29,17 @@ int main() {
 }" CPPTOML_HAS_STD_PUT_TIME)
 
 check_cxx_source_runs("
+#include <cstring>
+#include <ctime>
 #include <regex>
 int main() {
     std::string to_match = \"2014-02-05T14:30:05Z\";
-    std::regex pattern{\"(\\\\d{4})-(\\\\d{2})-(\\\\d{2})T(\\\\d{2}):(\\\\d{2}):(\\\\d{2})Z\"};
+    std::regex pattern{\"(\\\\\\\\d{4})-(\\\\\\\\d{2})-(\\\\\\\\d{2})T(\\\\\\\\d{2}):(\\\\\\\\d{2}):(\\\\\\\\d{2})Z\"};
     std::match_results<std::string::const_iterator> results;
     std::regex_match(to_match, results, pattern);
 
     std::tm date;
-    std::memset( &date, '\0', sizeof( date ) );
+    std::memset( &date, '\\\\0', sizeof( date ) );
     date.tm_year = stoi( results[1] ) - 1900;
     date.tm_mon = stoi( results[2] ) - 1;
     date.tm_mday = stoi( results[3] );
