@@ -8,13 +8,18 @@
 #define _CPPTOML_H_
 
 #include <algorithm>
+#if !CPPTOML_HAS_STD_PUT_TIME
+#include <array>
+#endif
 #include <cstdint>
 #include <ctime>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <memory>
+#if CPPTOML_HAS_STD_REGEX
 #include <regex>
+#endif
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -117,7 +122,13 @@ inline void toml_value<bool>::print( std::ostream & stream ) const {
 
 template <>
 inline void toml_value<std::tm>::print( std::ostream & stream ) const {
+#if CPPTOML_HAS_STD_PUT_TIME
     stream << std::put_time( &data_, "%c %Z" );
+#else
+    std::array<char, 100> buf;
+    if( std::strftime( &buf[0], 100, "%c %Z", &data_ ) )
+        stream << &buf[0];
+#endif
 }
 
 template <>
@@ -335,7 +346,7 @@ class parser {
         /**
          * Parsers are constructed from streams.
          */
-        parser( std::istream & stream ) : input_{ stream } { }
+        parser( std::istream & stream ) : input_( stream ) { }
 
         /**
          * Parses the stream this parser was created on until EOF.
@@ -661,6 +672,8 @@ class parser {
             });
             std::string to_match{ it, date_end };
             it = date_end;
+
+#if CPPTOML_HAS_STD_REGEX
             std::regex pattern{ "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})Z" };
             std::match_results<std::string::const_iterator> results;
             std::regex_match( to_match, results, pattern );
@@ -674,6 +687,27 @@ class parser {
             date.tm_hour = stoi( results[4] );
             date.tm_min = stoi( results[5] );
             date.tm_sec = stoi( results[6] );
+#else
+            int year;
+            int month;
+            int day;
+            int hour;
+            int min;
+            int sec;
+            std::sscanf( to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year, &month,
+                         &day, &hour, &min, &sec );
+
+
+            // populate extracted vaues
+            std::tm date;
+            std::memset( &date, '\0', sizeof( date ) );
+            date.tm_year = year - 1900;
+            date.tm_mon = month - 1;
+            date.tm_mday = day;
+            date.tm_hour = hour;
+            date.tm_min = min;
+            date.tm_sec = sec;
+#endif
 
             // correctly fill in missing values
             // "portable" version of timegm()
@@ -793,8 +827,14 @@ class parser {
                 return !is_number( c ) && c != 'T' && c != 'Z' && c != ':' && c != '-';
             });
             std::string to_match{ it, date_end };
+#if CPPTOML_HAS_STD_REGEX
             std::regex pattern{ "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z" };
             return std::regex_match( to_match, pattern );
+#else
+        return to_match[4] == '-' && to_match[7] == '-'
+               && to_match[10] == 'T' && to_match[13] == ':'
+               && to_match[16] == ':' && to_match[19] == 'Z';
+#endif
         }
 
         std::istream & input_;

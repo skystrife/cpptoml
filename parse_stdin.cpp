@@ -24,8 +24,14 @@ void print_value( std::ostream & o, const std::shared_ptr<cpptoml::toml_base> & 
     } else if( auto v = base->as<double>() ) {
         o << "{\"type\":\"float\",\"value\":\"" << v->value() << "\"}";
     } else if( auto v = base->as<std::tm>() ) {
-        o << "{\"type\":\"datetime\",\"value\":\"" <<
-            std::put_time( &v->value(), "%Y-%m-%dT%H:%M:%SZ" ) << "\"}";
+        o << "{\"type\":\"datetime\",\"value\":\"";
+#if CPPTOML_HAS_STD_PUT_TIME
+        o << std::put_time( &v->value(), "%Y-%m-%dT%H:%M:%SZ" ) << "\"}";
+#else
+        std::array<char, 100> buf;
+        if( std::strftime( &buf[0], 100, "%Y-%m-%dT%H:%M:%SZ", &v->value() ) )
+            o << &buf[0];
+#endif
     } else if( auto v = base->as<bool>() ) {
         o << "{\"type\":\"bool\",\"value\":\"";
         v->print( o );
