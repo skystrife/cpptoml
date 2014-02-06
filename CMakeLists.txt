@@ -28,6 +28,10 @@ int main() {
     return 0;
 }" CPPTOML_HAS_STD_PUT_TIME)
 
+if(CPPTOML_HAS_STD_PUT_TIME)
+    add_definitions(-DCPPTOML_HAS_STD_PUT_TIME=1)
+endif()
+
 check_cxx_source_runs("
 #include <cstring>
 #include <ctime>
@@ -48,6 +52,10 @@ int main() {
     date.tm_sec = stoi( results[6] );
     return 0;
 }" CPPTOML_HAS_STD_REGEX)
+
+if(CPPTOML_HAS_STD_REGEX)
+    add_definitions(-DCPPTOML_HAS_STD_REGEX=1)
+endif()
 
 add_executable( parse parse.cpp )
 add_executable( cpptoml parse_stdin.cpp )
