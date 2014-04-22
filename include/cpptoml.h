@@ -237,6 +237,15 @@ class toml_group : public toml_base {
                 return nullptr;
         }
 
+        std::vector<std::shared_ptr<toml_base>> * get_array( const std::string& key ) const {
+            if( !contains( key ) )
+                return nullptr;
+            if( auto value = get( key )->as<std::vector<std::shared_ptr<toml_base>>>() )
+                return &value->value();
+            else
+                return nullptr;
+        }
+
         /**
          * Obtains a toml_group_array for a given key, if possible.
          */
