@@ -8,6 +8,7 @@
 #define _CPPTOML_H_
 
 #include <algorithm>
+#include <stdexcept>
 #if !CPPTOML_HAS_STD_PUT_TIME
 #include <array>
 #endif
@@ -272,6 +273,53 @@ class toml_group : public toml_base {
         }
 
         /**
+         * Obtains the toml_base for a given key, like get(), but it
+         * will resolve "qualified keys". Qualified keys are the full access
+         * path separated with dots like "grandparent.parent.child".
+         * @throw std::out_of_range if the key does not exist
+         */
+        std::shared_ptr<toml_base> find( const std::string & key ) const {
+            auto parts = split( key, '.' );
+            if( parts.size() == 1 )
+                return get(key);
+
+            auto first_key = parts.front();
+            parts.erase( parts.begin() );
+            auto last_key = parts.back();
+            parts.pop_back();
+
+            auto check_group = [&key]( std::shared_ptr<toml_group> group ) {
+                if( !group )
+                    throw std::out_of_range(key + " is not a valid key");
+            };
+
+            auto group = get_group( first_key );
+            check_group( group );
+            for( auto& part : parts ) {
+                group = group->get_group( part );
+                check_group( group );
+            }
+            return group->get( last_key );
+        }
+
+        /**
+         * Helper function that attempts to get a toml_value corresponding
+         * to the teplate parameter from a given key. 
+         * It's to find() what get_as() is to get().
+         */
+        template <class T>
+        T * find_as( const std::string & key ) const {
+            try {
+                if( auto v = find( key )->as<T>() )
+                    return &v->value();
+                else
+                    return nullptr;
+            } catch( const std::out_of_range& err ) {
+                return nullptr;
+            }
+        }
+
+        /**
          * Adds an element to the keygroup.
          */
         void insert( const std::string & key, const std::shared_ptr<toml_base> & value ) {
@@ -300,6 +348,18 @@ class toml_group : public toml_base {
         }
 
     private:
+        std::vector<std::string> split(const std::string& value, char separator) const {
+            std::vector<std::string> result;
+            std::string::size_type p = 0;
+            std::string::size_type q;
+            while( (q = value.find( separator, p )) != std::string::npos ) {
+                result.emplace_back( value, p, q - p );
+                p = q + 1;
+            }
+            result.emplace_back( value, p );
+            return result;
+        }
+
         void print( std::ostream & stream, size_t depth ) const {
             for( auto & p : map_ ) {
                 if( p.second->is_group_array() ) {
@@ -328,7 +388,11 @@ class toml_group : public toml_base {
  */
 template <class T>
 T * get_as( const cpptoml::toml_group & group, const std::string & key ) {
-        return group.get_as<T>( key );
+    return group.get_as<T>( key );
+}
+template <class T>
+T * find_as( const cpptoml::toml_group & group, const std::string & key ) {
+    return group.find_as<T>( key );
 }
 
 inline void toml_group_array::print( std::ostream & stream, size_t depth, const std::string & key ) const {
