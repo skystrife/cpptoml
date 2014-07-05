@@ -590,6 +590,8 @@ class parser
         auto kg_end = std::find(it, end, ']');
         if (kg_end == end)
             throw toml_parse_exception{"Unterminated keygroup array"};
+        if (it == kg_end)
+            throw toml_parse_exception{"Empty keygroup"};
         auto kga_end = kg_end;
         if (*++kga_end != ']')
             throw toml_parse_exception{"Invalid keygroup array specifier"};
