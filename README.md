@@ -1,18 +1,17 @@
 # cpptoml
 A header-only library for parsing [TOML][toml] configuration files.
 
-Targets: d9f4282287967bf2f42ac4426dc1cf69ec608b10
+Targets:
+[0.2.0](https://github.com/toml-lang/toml/blob/master/versions/toml-v0.2.0.md)
 
-It is reasonably conformant, with the exception of unicode characters in
-strings.
+It is reasonably conforming, with the exception of unicode characters and
+escape characters in strings.
 
-Alternatives: 
+Alternatives:
 - [ctoml][ctoml] is another C++11 implementation of a TOML
-  parser. The approach taken in both for parsing is similar, but the output
-  format is dramatically different---ctoml uses a compact `union` approach
-  where `cpptoml` uses an inheritance hierarchy with type erasure. This means
-  that `cpptoml` will use familiar standard types like `std::string` and
-  `std::vector`, but potentially at the expense of runtime performance.
+  parser. It used to take a dramatically different approach to
+  representation, but over time it has evolved to be similar in structure
+  to cpptoml.
 - [libtoml][libtoml] is a C implementation of a TOML parser, which can be
   linked to from your C++ programs easily.
 
@@ -29,7 +28,7 @@ Test: unicode-escape (valid)
 
 Error running test: exit status 1
 
-54 passed, 2 failed
+62 passed, 2 failed
 ```
 
 # Compilation
@@ -42,14 +41,15 @@ Compiling the examples can be done with cmake:
 ```
 mkdir build
 cd build
-cmake ../ -DCMAKE_BUILD_TYPE=Debug
+cmake ../
+make
 ```
 
 # Example Usage
 See the root directory files `parse.cpp` and `parse_stdin.cpp` for an
 example usage.
 
-[toml]: https://github.com/mojombo/toml
+[toml]: https://github.com/toml-lang/toml
 [toml-test]: https://github.com/BurntSushi/toml-test
 [ctoml]: https://github.com/evilncrazy/ctoml
 [libtoml]: https://github.com/ajwans/libtoml
