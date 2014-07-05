@@ -304,7 +304,7 @@ class toml_group : public toml_base {
 
         /**
          * Helper function that attempts to get a toml_value corresponding
-         * to the teplate parameter from a given key. 
+         * to the template parameter from a given key.
          * It's to find() what get_as() is to get().
          */
         template <class T>
