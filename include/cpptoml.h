@@ -212,7 +212,7 @@ class toml_group : public toml_base {
         }
 
         /**
-         * Determines if ths key group contains the given key.
+         * Determines if this key group contains the given key.
          */
         bool contains( const std::string & key ) const {
             return map_.find( key ) != map_.end();
