@@ -55,6 +55,16 @@ void print_group( std::ostream & o, cpptoml::toml_group & g ) {
         o << '"' << escape_string( it->first ) << "\":";
         if( it->second->is_group() ) {
             print_group( o, *g.get_group( it->first ) );
+        } else if( it->second->is_group_array() ) {
+            o << "[";
+            auto arr = g.get_group_array( it->first )->array();
+            auto ait = arr.begin();
+            while( ait != arr.end() ) {
+                print_group( o, **ait );
+                if ( ++ait != arr.end() )
+                    o << ", ";
+            }
+            o << "]";
         } else {
             print_value( o, it->second );
         }
