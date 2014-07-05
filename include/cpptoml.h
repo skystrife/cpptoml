@@ -212,22 +212,34 @@ class toml_group : public toml_base {
         }
 
         /**
-         * Determines if this key group contains the given key.
+         * Determines if this key group contains the given key. Will
+         * resolve "qualified keys". Qualified keys are the full access
+         * path separated with dots like "grandparent.parent.child".
          */
         bool contains( const std::string & key ) const {
-            return map_.find( key ) != map_.end();
+            try {
+                resolve_qualified( key );
+                return true;
+            } catch (std::out_of_range &)
+            {
+                return false;
+            }
         }
 
         /**
-         * Obtains the toml_base for a given key.
+         * Obtains the toml_base for a given key. Will resolve "qualified
+         * keys". Qualified keys are the full access path separated with
+         * dots like "grandparent.parent.child".
+         *
          * @throw std::out_of_range if the key does not exist
          */
         std::shared_ptr<toml_base> get( const std::string & key ) const {
-            return map_.at( key );
+            return resolve_qualified( key );
         }
 
         /**
-         * Obtains a toml_group for a given key, if possible.
+         * Obtains a toml_group for a given key, if possible. Will resolve
+         * "qualified keys".
          */
         std::shared_ptr<toml_group> get_group( const std::string & key ) const {
             if( !contains( key ) )
@@ -238,6 +250,9 @@ class toml_group : public toml_base {
                 return nullptr;
         }
 
+        /**
+         * Obtains an array for a given key. Will resolve "qualified keys".
+         */
         std::vector<std::shared_ptr<toml_base>> * get_array( const std::string& key ) const {
             if( !contains( key ) )
                 return nullptr;
@@ -248,7 +263,8 @@ class toml_group : public toml_base {
         }
 
         /**
-         * Obtains a toml_group_array for a given key, if possible.
+         * Obtains a toml_group_array for a given key, if possible. Will
+         * resolve "qualified keys".
          */
         std::shared_ptr<toml_group_array> get_group_array( const std::string & key ) const {
             if( !contains( key ) )
@@ -261,52 +277,17 @@ class toml_group : public toml_base {
 
         /**
          * Helper function that attempts to get a toml_value corresponding
-         * to the teplate parameter from a given key.
+         * to the template parameter from a given key. Will resolve
+         * "qualified keys".
          */
         template <class T>
         T * get_as( const std::string & key ) const {
-            if( !contains( key ) )
-                return nullptr;
-            if( auto v = get( key )->as<T>() )
-                return &v->value();
-            return nullptr;
-        }
-
-        /**
-         * Obtains the toml_base for a given key, like get(), but it
-         * will resolve "qualified keys". Qualified keys are the full access
-         * path separated with dots like "grandparent.parent.child".
-         * @throw std::out_of_range if the key does not exist
-         */
-        std::shared_ptr<toml_base> find( const std::string & key ) const {
-            auto parts = split( key, '.' );
-
-            auto last_key = parts.back();
-            parts.pop_back();
-
-            auto group = this;
-            for( auto & part : parts )
-            {
-                group = group->get_group(part).get();
-                if (!group)
-                    throw std::out_of_range{ key + " is not a valid key" };
-            }
-            return group->get( last_key );
-        }
-
-        /**
-         * Helper function that attempts to get a toml_value corresponding
-         * to the template parameter from a given key.
-         * It's to find() what get_as() is to get().
-         */
-        template <class T>
-        T * find_as( const std::string & key ) const {
             try {
-                if( auto v = find( key )->as<T>() )
+                if( auto v = get( key )->as<T>() )
                     return &v->value();
                 else
                     return nullptr;
-            } catch( const std::out_of_range& err ) {
+            } catch( const std::out_of_range& ) {
                 return nullptr;
             }
         }
@@ -330,7 +311,7 @@ class toml_group : public toml_base {
                                              || std::is_same<T, bool>::value
                                              || std::is_same<T, std::tm>::value
                                             >::type * = 0 ) {
-            map_[ key ] = std::make_shared<toml_value<T>>( value );
+            insert(key, std::make_shared<toml_value<T>>( value ));
         }
 
         friend std::ostream & operator<<( std::ostream & stream, const toml_group & group );
@@ -350,6 +331,21 @@ class toml_group : public toml_base {
             }
             result.emplace_back( value, p );
             return result;
+        }
+
+        std::shared_ptr<toml_base> resolve_qualified( const std::string& key ) const {
+            auto parts = split( key, '.' );
+            auto last_key = parts.back();
+            parts.pop_back();
+
+            auto group = this;
+            for( const auto& part : parts )
+            {
+                group = group->get_group( part ).get();
+                if (!group)
+                    throw std::out_of_range{ key + " is not a valid key" };
+            }
+            return group->map_.at( last_key );
         }
 
         void print( std::ostream & stream, size_t depth ) const {
@@ -381,10 +377,6 @@ class toml_group : public toml_base {
 template <class T>
 T * get_as( const cpptoml::toml_group & group, const std::string & key ) {
     return group.get_as<T>( key );
-}
-template <class T>
-T * find_as( const cpptoml::toml_group & group, const std::string & key ) {
-    return group.find_as<T>( key );
 }
 
 inline void toml_group_array::print( std::ostream & stream, size_t depth, const std::string & key ) const {
