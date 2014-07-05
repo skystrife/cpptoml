@@ -280,24 +280,16 @@ class toml_group : public toml_base {
          */
         std::shared_ptr<toml_base> find( const std::string & key ) const {
             auto parts = split( key, '.' );
-            if( parts.size() == 1 )
-                return get(key);
 
-            auto first_key = parts.front();
-            parts.erase( parts.begin() );
             auto last_key = parts.back();
             parts.pop_back();
 
-            auto check_group = [&key]( std::shared_ptr<toml_group> group ) {
-                if( !group )
-                    throw std::out_of_range(key + " is not a valid key");
-            };
-
-            auto group = get_group( first_key );
-            check_group( group );
-            for( auto& part : parts ) {
-                group = group->get_group( part );
-                check_group( group );
+            auto group = this;
+            for( auto & part : parts )
+            {
+                group = group->get_group(part).get();
+                if (!group)
+                    throw std::out_of_range{ key + " is not a valid key" };
             }
             return group->get( last_key );
         }
