@@ -30,7 +30,40 @@ namespace cpptoml
 {
 
 template <class T>
+class option
+{
+  public:
+    option() : empty_{true}
+    {
+        // nothing
+    }
+
+    option(T value) : empty_{false}, value_{std::move(value)}
+    {
+        // nothing
+    }
+
+    explicit operator bool() const
+    {
+        return !empty_;
+    }
+
+    const T& operator*() const
+    {
+        return value_;
+    }
+
+  private:
+    bool empty_;
+    T value_;
+};
+
+template <class T>
 class toml_value;
+
+class toml_array;
+class toml_group;
+class toml_group_array;
 
 /**
  * A generic base TOML value used for type erasure.
@@ -55,11 +88,49 @@ class toml_base : public std::enable_shared_from_this<toml_base>
     }
 
     /**
+     * Converts the TOML element into a group.
+     */
+    std::shared_ptr<toml_group> as_group()
+    {
+        if (is_group())
+            return std::static_pointer_cast<toml_group>(shared_from_this());
+        return nullptr;
+    }
+    /**
+     * Determines if the TOML element is an array of "leaf" elements.
+     */
+    virtual bool is_array() const
+    {
+        return false;
+    }
+
+    /**
+     * Converts the TOML element to an array.
+     */
+    std::shared_ptr<toml_array> as_array()
+    {
+        if (is_array())
+            return std::static_pointer_cast<toml_array>(shared_from_this());
+        return nullptr;
+    }
+
+    /**
      * Determines if the given TOML element is an array of groups.
      */
     virtual bool is_group_array() const
     {
         return false;
+    }
+
+    /**
+     * Converts the TOML element into a group array.
+     */
+    std::shared_ptr<toml_group_array> as_group_array()
+    {
+        if (is_group_array())
+            return std::static_pointer_cast<toml_group_array>(
+                shared_from_this());
+        return nullptr;
     }
 
     /**
@@ -75,6 +146,15 @@ class toml_base : public std::enable_shared_from_this<toml_base>
     std::shared_ptr<toml_value<T>> as();
 };
 
+template <class T>
+struct valid_value
+{
+    const static bool value =
+        std::is_same<T, std::string>::value ||
+        std::is_same<T, int64_t>::value || std::is_same<T, double>::value ||
+        std::is_same<T, bool>::value || std::is_same<T, std::tm>::value;
+};
+
 /**
  * A concrete TOML value representing the "leaves" of the "tree".
  */
@@ -82,6 +162,8 @@ template <class T>
 class toml_value : public toml_base
 {
   public:
+    static_assert(valid_value<T>::value, "invalid toml_value type");
+
     /**
      * Constructs a value from the given data.
      */
@@ -148,29 +230,103 @@ inline void toml_value<std::tm>::print(std::ostream& stream) const
 #endif
 }
 
-template <>
-inline void toml_value<std::vector<std::shared_ptr<toml_base>>>::print(
-    std::ostream& stream) const
-{
-    stream << "[ ";
-    auto it = data_.begin();
-    while (it != data_.end())
-    {
-        (*it)->print(stream);
-        if (++it != data_.end())
-            stream << ", ";
-    }
-    stream << " ]";
-}
-
 template <class T>
 inline std::shared_ptr<toml_value<T>> toml_base::as()
 {
     if (auto v = std::dynamic_pointer_cast<toml_value<T>>(shared_from_this()))
         return v;
-    else
-        return nullptr;
+    return nullptr;
 }
+
+class toml_array : public toml_base
+{
+  public:
+    toml_array() = default;
+
+    template <class InputIterator>
+    toml_array(InputIterator begin, InputIterator end)
+        : values_{begin, end}
+    {
+        // nothing
+    }
+
+    virtual bool is_array() const override
+    {
+        return true;
+    }
+
+    /**
+     * Obtains the array (vector) of toml_base values.
+     */
+    std::vector<std::shared_ptr<toml_base>>& array()
+    {
+        return values_;
+    }
+
+    /**
+     * Obtains the array (vector) of toml_base values. Const version.
+     */
+    const std::vector<std::shared_ptr<toml_base>>& array() const
+    {
+        return values_;
+    }
+
+    std::shared_ptr<toml_base> at(uint64_t idx) const
+    {
+        return values_.at(idx);
+    }
+
+    /**
+     * Obtains an array of toml_value<T>s. Note that elements may be
+     * nullptr if they cannot be converted to a toml_value<T>.
+     */
+    template <class T>
+    std::vector<std::shared_ptr<toml_value<T>>> array_of() const
+    {
+        std::vector<std::shared_ptr<toml_value<T>>> result(values_.size());
+
+        std::transform(values_.begin(), values_.end(), result.begin(),
+                       [&](std::shared_ptr<toml_base> v)
+        { return v->as<T>(); });
+
+        return result;
+    }
+
+    /**
+     * Obtains an array of toml_arrays. Note that elements may be nullptr
+     * if they cannot be converted to a toml_array.
+     */
+    std::vector<std::shared_ptr<toml_array>> nested_array() const
+    {
+        std::vector<std::shared_ptr<toml_array>> result(values_.size());
+
+        std::transform(values_.begin(), values_.end(), result.begin(),
+                       [&](std::shared_ptr<toml_base> v)
+        {
+            if (v->is_array())
+                return std::static_pointer_cast<toml_array>(v);
+            return std::shared_ptr<toml_array>{};
+        });
+
+        return result;
+    }
+
+    virtual void print(std::ostream& stream) const override
+    {
+        stream << "[ ";
+        auto it = values_.begin();
+        while (it != values_.end())
+        {
+            (*it)->print(stream);
+            if (++it != values_.end())
+                stream << ", ";
+        }
+        stream << " ]";
+    }
+
+  private:
+    std::vector<std::shared_ptr<toml_base>> values_;
+};
 
 class toml_group;
 
@@ -280,27 +436,19 @@ class toml_group : public toml_base
      */
     std::shared_ptr<toml_group> get_group(const std::string& key) const
     {
-        if (!contains(key))
-            return nullptr;
-        if (get(key)->is_group())
+        if (contains(key) && get(key)->is_group())
             return std::static_pointer_cast<toml_group>(get(key));
-        else
-            return nullptr;
+        return nullptr;
     }
 
     /**
      * Obtains an array for a given key. Will resolve "qualified keys".
      */
-    std::vector<std::shared_ptr<toml_base>>*
-        get_array(const std::string& key) const
+    std::shared_ptr<toml_array> get_array(const std::string& key) const
     {
         if (!contains(key))
             return nullptr;
-        if (auto value =
-                get(key)->as<std::vector<std::shared_ptr<toml_base>>>())
-            return &value->value();
-        else
-            return nullptr;
+        return get(key)->as_array();
     }
 
     /**
@@ -312,10 +460,7 @@ class toml_group : public toml_base
     {
         if (!contains(key))
             return nullptr;
-        if (get(key)->is_group_array())
-            return std::static_pointer_cast<toml_group_array>(get(key));
-        else
-            return nullptr;
+        return get(key)->as_group_array();
     }
 
     /**
@@ -324,18 +469,18 @@ class toml_group : public toml_base
      * "qualified keys".
      */
     template <class T>
-    T* get_as(const std::string& key) const
+    option<T> get_as(const std::string& key) const
     {
         try
         {
             if (auto v = get(key)->as<T>())
-                return &v->value();
+                return {v->value()};
             else
-                return nullptr;
+                return {};
         }
         catch (const std::out_of_range&)
         {
-            return nullptr;
+            return {};
         }
     }
 
@@ -352,14 +497,8 @@ class toml_group : public toml_base
      * keygroup.
      */
     template <class T>
-    void
-        insert(const std::string& key, T&& value,
-               typename std::enable_if<std::is_same<T, std::string>::value ||
-                                       std::is_same<T, int64_t>::value ||
-                                       std::is_same<T, double>::value ||
-                                       std::is_same<T, bool>::value ||
-                                       std::is_same<T, std::tm>::value>::type* =
-                   0)
+    void insert(const std::string& key, T&& value,
+                typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
         insert(key, std::make_shared<toml_value<T>>(value));
     }
@@ -972,9 +1111,7 @@ class parser
         if (*it == ']')
         {
             ++it;
-            return std::make_shared<
-                toml_value<std::vector<std::shared_ptr<toml_base>>>>(
-                std::vector<std::shared_ptr<toml_base>>{});
+            return std::make_shared<toml_array>();
         }
 
         auto val_end = std::find_if(it, end, [](char c)
@@ -991,23 +1128,22 @@ class parser
             case parse_type::DATE:
                 return parse_value_array<std::tm>(it, end);
             case parse_type::ARRAY:
-                return parse_value_array<
-                    std::vector<std::shared_ptr<toml_base>>>(it, end);
+                return parse_nested_array(it, end);
             default:
                 throw toml_parse_exception{"Unable to parse array"};
         }
     }
 
     template <class Value>
-    std::shared_ptr<toml_value<std::vector<std::shared_ptr<toml_base>>>>
-        parse_value_array(std::string::iterator& it, std::string::iterator& end)
+    std::shared_ptr<toml_array> parse_value_array(std::string::iterator& it,
+                                                  std::string::iterator& end)
     {
-        std::vector<std::shared_ptr<toml_base>> array;
+        auto arr = std::make_shared<toml_array>();
         while (it != end && *it != ']')
         {
             auto value = parse_value(it, end);
             if (auto v = value->as<Value>())
-                array.push_back(value);
+                arr->array().push_back(value);
             else
                 throw toml_parse_exception{"Arrays must be heterogeneous"};
             skip_whitespace_and_comments(it, end);
@@ -1018,7 +1154,25 @@ class parser
         }
         if (it != end)
             ++it;
-        return std::make_shared<toml_value<decltype(array)>>(array);
+        return arr;
+    }
+
+    std::shared_ptr<toml_array> parse_nested_array(std::string::iterator& it,
+                                                   std::string::iterator& end)
+    {
+        auto arr = std::make_shared<toml_array>();
+        while (it != end && *it != ']')
+        {
+            arr->array().push_back(parse_array(it, end));
+            skip_whitespace_and_comments(it, end);
+            if (*it != ',')
+                break;
+            ++it;
+            skip_whitespace_and_comments(it, end);
+        }
+        if (it != end)
+            ++it;
+        return arr;
     }
 
     void skip_whitespace_and_comments(std::string::iterator& start,
