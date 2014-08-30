@@ -805,6 +805,8 @@ class parser
         consume_backwards_whitespace(key_end, it);
         ++key_end;
         std::string key{it, key_end};
+        if (std::find(it, key_end, '#') != key_end)
+            throw toml_parse_exception{"Key " + key + " cannot contain #"};
         it = eq;
         consume_whitespace(it, end);
         return key;
