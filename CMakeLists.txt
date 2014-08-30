@@ -1,25 +1,85 @@
-cmake_minimum_required( VERSION 2.8 )
-project( cpptoml )
+cmake_minimum_required(VERSION 3.0.0)
+project(cpptoml)
 
-option( USE_LIBCXX "Use libc++ for the C++ standard library" ON )
+include(CheckCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
+include(CheckCXXSourceRuns)
 
-include_directories( "include/" )
+option(USE_LIBCXX "Use libc++ for the C++ standard library" ON)
 
-if( UNIX )
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic" )
-    set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_CXX_EXE_LINKER_FLAGS} -ldl" )
-    if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" )
-        if( USE_LIBCXX )
-            set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" )
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++abi")
-            set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -lc++abi")
+if(UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        if(USE_LIBCXX)
+            message("-- Locating libc++...")
+            find_library(LIBCXX_LIBRARY NAMES c++ cxx)
+            if(LIBCXX_LIBRARY)
+                message("-- Located libc++, using it.")
+                set(LIBCXX_OPTIONS "-stdlib=libc++")
+                message("--     Locating libc++'s abi...")
+                find_library(LIBCXXABI_LIBRARY NAMES c++abi)
+                find_library(LIBCXXRT_LIBRARY NAMES cxxrt)
+                if(LIBCXXABI_LIBRARY)
+                    message("--     Found libc++abi, using it.")
+                    set(CXXABI_LIBRARY ${LIBCXXABI_LIBRARY})
+                elseif(LIBCXXRT_LIBRARY)
+                    message("--     Found libcxxrt, using it.")
+                    set(CXXABI_LIBRARY ${LIBCXXRT_LIBRARY})
+                else()
+                    message("--     No abi library found. "
+                            "Attempting to continue without one...")
+                endif()
+            else()
+                message("-- Could not find libc++, will not use it.")
+            endif()
         endif()
+    endif()
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXX_OPTIONS}")
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${CXXABI_LIBRARY}")
+
+    # if we don't already set the standard for the compiler, detect the
+    # best one available and use it
+    if(NOT "${CMAKE_CXX_FLAGS}" MATCHES "std=c\\+\\+(0x|11|1y|14)")
+        check_cxx_compiler_flag(-std=c++14 HAS_CXX14)
+        if(HAS_CXX14)
+            message("-- Compiler supports C++14 (using it)")
+            set(STDOPT "-std=c++14")
+        endif()
+
+        if(NOT STDOPT)
+            check_cxx_compiler_flag(-std=c++1y HAS_CXX1Y)
+            if(HAS_CXX1Y)
+                message("-- Compiler supports C++1y (using it)")
+                set(STDOPT "-std=c++1y")
+            endif()
+        endif()
+
+        if(NOT STDOPT)
+            check_cxx_compiler_flag(-std=c++11 HAS_CXX11)
+            if(HAS_CXX11)
+                message("-- Compiler supports C++11 (using it)")
+                set(STDOPT "-std=c++11")
+            endif()
+        endif()
+
+        if(NOT STDOPT)
+            check_cxx_compiler_flag(-std=c++0x HAS_CXX0X)
+            if(HAS_CXXOX)
+                message("-- Compiler supports C++0x (using it)")
+                set(STDOPT "-std=c++0x")
+            endif()
+        endif()
+
+        if(NOT STDOPT)
+            message(FATAL_ERROR
+                    "cpptoml requires a compiler with at least C++0x support")
+        endif()
+
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STDOPT}")
     endif()
 endif()
 
-include(CheckCXXSourceCompiles)
-include(CheckCXXSourceRuns)
 check_cxx_source_compiles("
 #include <iomanip>
 int main() {
@@ -27,10 +87,6 @@ int main() {
     std::put_time(&t, \"%Y\");
     return 0;
 }" CPPTOML_HAS_STD_PUT_TIME)
-
-if(CPPTOML_HAS_STD_PUT_TIME)
-    add_definitions(-DCPPTOML_HAS_STD_PUT_TIME=1)
-endif()
 
 check_cxx_source_runs("
 #include <cstring>
@@ -43,31 +99,39 @@ int main() {
     std::regex_match(to_match, results, pattern);
 
     std::tm date;
-    std::memset( &date, '\\\\0', sizeof( date ) );
-    date.tm_year = stoi( results[1] ) - 1900;
-    date.tm_mon = stoi( results[2] ) - 1;
-    date.tm_mday = stoi( results[3] );
-    date.tm_hour = stoi( results[4] );
-    date.tm_min = stoi( results[5] );
-    date.tm_sec = stoi( results[6] );
+    std::memset(&date, '\\\\0', sizeof(date));
+    date.tm_year = stoi(results[1]) - 1900;
+    date.tm_mon = stoi(results[2]) - 1;
+    date.tm_mday = stoi(results[3]);
+    date.tm_hour = stoi(results[4]);
+    date.tm_min = stoi(results[5]);
+    date.tm_sec = stoi(results[6]);
     return 0;
 }" CPPTOML_HAS_STD_REGEX)
 
-if(CPPTOML_HAS_STD_REGEX)
-    add_definitions(-DCPPTOML_HAS_STD_REGEX=1)
+add_library(cpptoml INTERFACE)
+target_include_directories(cpptoml INTERFACE ${PROJECT_SOURCE_DIR}/include)
+target_compile_options(cpptoml INTERFACE ${STDOPT} ${LIBCXX_OPTIONS})
+if(CPPTOML_HAS_STD_PUT_TIME)
+    target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_PUT_TIME=1)
 endif()
+if (CPPTOML_HAS_STD_REGEX)
+    target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_REGEX=1)
+endif()
+target_link_libraries(cpptoml INTERFACE ${LIBCXX_LIBRARY} ${CXXABI_LIBRARY})
 
-add_executable( parse parse.cpp )
-add_executable( cpptoml parse_stdin.cpp )
+add_executable(parse parse.cpp)
+target_link_libraries(parse cpptoml)
 
-find_package( Doxygen )
-if( DOXYGEN_FOUND )
-    configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/cpptoml.doxygen.in
-                    ${CMAKE_CURRENT_BINARY_DIR}/cpptoml.doxygen @ONLY
-    )
-    add_custom_target( doc
+add_executable(cpptoml-parser parse_stdin.cpp)
+target_link_libraries(cpptoml-parser cpptoml)
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND and NOT TARGET doc)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cpptoml.doxygen.in
+                    ${CMAKE_CURRENT_BINARY_DIR}/cpptoml.doxygen @ONLY)
+    add_custom_target(doc
                        ${DOXYGEN_EXECUTABLE}
                        ${CMAKE_CURRENT_BINARY_DIR}/cpptoml.doxygen
-                       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    )
+                       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
