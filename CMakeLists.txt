@@ -127,7 +127,7 @@ add_executable(cpptoml-parser parse_stdin.cpp)
 target_link_libraries(cpptoml-parser cpptoml)
 
 find_package(Doxygen)
-if(DOXYGEN_FOUND and NOT TARGET doc)
+if(DOXYGEN_FOUND AND NOT TARGET doc)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cpptoml.doxygen.in
                     ${CMAKE_CURRENT_BINARY_DIR}/cpptoml.doxygen @ONLY)
     add_custom_target(doc
