@@ -42,7 +42,7 @@ void print_value(std::ostream& o,
 #else
         std::array<char, 100> buf;
         if (std::strftime(&buf[0], 100, "%Y-%m-%dT%H:%M:%SZ", &v->value()))
-            o << &buf[0];
+            o << &buf[0] << "\"}";
 #endif
     }
     else if (auto v = base->as<bool>())
@@ -51,19 +51,23 @@ void print_value(std::ostream& o,
         v->print(o);
         o << "\"}";
     }
-    else if (auto v =
-                 base->as<std::vector<std::shared_ptr<cpptoml::toml_base>>>())
+}
+
+void print_array(std::ostream& o, cpptoml::toml_array& arr)
+{
+    o << "{\"type\":\"array\",\"value\":[";
+    auto it = arr.array().begin();
+    while (it != arr.array().end())
     {
-        o << "{\"type\":\"array\",\"value\":[";
-        auto it = v->value().begin();
-        while (it != v->value().end())
-        {
+        if ((*it)->is_array())
+            print_array(o, *(*it)->as_array());
+        else
             print_value(o, *it);
-            if (++it != v->value().end())
-                o << ", ";
-        }
-        o << "]}";
+
+        if (++it != arr.array().end())
+            o << ", ";
     }
+    o << "]}";
 }
 
 void print_group(std::ostream& o, cpptoml::toml_group& g)
@@ -73,7 +77,11 @@ void print_group(std::ostream& o, cpptoml::toml_group& g)
     while (it != g.end())
     {
         o << '"' << escape_string(it->first) << "\":";
-        if (it->second->is_group())
+        if (it->second->is_array())
+        {
+            print_array(o, *it->second->as_array());
+        }
+        else if (it->second->is_group())
         {
             print_group(o, *g.get_group(it->first));
         }
