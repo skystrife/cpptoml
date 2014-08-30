@@ -572,16 +572,6 @@ class toml_group : public toml_base
     std::unordered_map<std::string, std::shared_ptr<toml_base>> map_;
 };
 
-/**
- * Convenience function to avoid having to type "template" when getting a
- * value out of a keygroup.
- */
-template <class T>
-T* get_as(const cpptoml::toml_group& group, const std::string& key)
-{
-    return group.get_as<T>(key);
-}
-
 inline void toml_group_array::print(std::ostream& stream, size_t depth,
                                     const std::string& key) const
 {
