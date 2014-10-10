@@ -271,7 +271,7 @@ class toml_array : public toml_base
         return values_;
     }
 
-    std::shared_ptr<toml_base> at(uint64_t idx) const
+    std::shared_ptr<toml_base> at(size_t idx) const
     {
         return values_.at(idx);
     }
