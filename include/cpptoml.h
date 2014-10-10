@@ -612,6 +612,8 @@ class parser
     {
     }
 
+    parser& operator=(const parser& parser) = delete;
+
     /**
      * Parses the stream this parser was created on until EOF.
      * @throw toml_parse_exception if there are errors in parsing
