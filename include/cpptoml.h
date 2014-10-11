@@ -787,7 +787,7 @@ class parser
         if (curr_group->contains(key))
             throw toml_parse_exception{"Key " + key + " already present"};
         if (*it != '=')
-            throw toml_parse_exception{"KeyValue must contain a '='"};
+            throw toml_parse_exception{"Value must follow after a '='"};
         ++it;
         consume_whitespace(it, end);
         curr_group->insert(key, parse_value(it, end));
@@ -916,7 +916,7 @@ class parser
                 value += *it++;
             }
         }
-        throw toml_parse_exception{"Unended string literal"};
+        throw toml_parse_exception{"Unterminated string literal"};
     }
 
     char parse_escape_code(std::string::iterator& it,
@@ -1039,7 +1039,7 @@ class parser
         std::match_results<std::string::const_iterator> results;
         std::regex_match(to_match, results, pattern);
 
-        // populate extracted vaues
+        // populate extracted values
         std::tm date;
         std::memset(&date, '\0', sizeof(date));
         date.tm_year = stoi(results[1]) - 1900;
@@ -1058,7 +1058,7 @@ class parser
         std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year, &month, &day,
                     &hour, &min, &sec);
 
-        // populate extracted vaues
+        // populate extracted values
         std::tm date;
         std::memset(&date, '\0', sizeof(date));
         date.tm_year = year - 1900;
@@ -1088,7 +1088,7 @@ class parser
     std::shared_ptr<toml_base> parse_array(std::string::iterator& it,
                                            std::string::iterator& end)
     {
-        // this gets ugly because of the "heterogenous" restriction:
+        // this gets ugly because of the "homogeneity" restriction:
         // arrays can either be of only one type, or contain arrays
         // (each of those arrays could be of different types, though)
         //
