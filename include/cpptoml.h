@@ -1071,19 +1071,6 @@ class parser
         date.tm_sec = sec;
 #endif
 
-        // correctly fill in missing values
-        // "portable" version of timegm()
-        char* tz = getenv("TZ");
-        setenv("TZ", "", 1);
-        tzset();
-        time_t t = mktime(&date);
-        date = *gmtime(&t);
-        if (tz)
-            setenv("TZ", tz, 1);
-        else
-            unsetenv("TZ");
-        tzset();
-
         return std::make_shared<toml_value<std::tm>>(date);
     }
 
