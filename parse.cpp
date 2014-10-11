@@ -10,7 +10,17 @@ int main(int argc, char** argv)
         std::cout << "Usage: " << argv[0] << " filename" << std::endl;
         return 1;
     }
-    cpptoml::toml_group g = cpptoml::parse_file(argv[1]);
-    std::cout << g << std::endl;
+
+    try
+    {
+        cpptoml::toml_group g = cpptoml::parse_file(argv[1]);
+        std::cout << g << std::endl;
+    }
+    catch (const cpptoml::toml_parse_exception& e)
+    {
+        std::cerr << "Failed to parse " << argv[1] << ": " << e.what() << std::endl;
+        return 1;
+    }
+
     return 0;
 }
