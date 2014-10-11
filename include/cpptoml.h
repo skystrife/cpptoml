@@ -1224,7 +1224,8 @@ class parser
         std::regex pattern{"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"};
         return std::regex_match(to_match, pattern);
 #else
-        return to_match[4] == '-' && to_match[7] == '-' &&
+        return to_match.length() == 20 &&
+               to_match[4] == '-' && to_match[7] == '-' &&
                to_match[10] == 'T' && to_match[13] == ':' &&
                to_match[16] == ':' && to_match[19] == 'Z';
 #endif
