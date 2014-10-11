@@ -222,11 +222,11 @@ template <>
 inline void toml_value<std::tm>::print(std::ostream& stream) const
 {
 #if CPPTOML_HAS_STD_PUT_TIME
-    stream << std::put_time(&data_, "%c %Z");
+    stream << std::put_time(&data_, "%c");
 #else
     std::array<char, 100> buf;
-    if (std::strftime(&buf[0], 100, "%c %Z", &data_))
-        stream << &buf[0];
+    if (std::strftime(&buf[0], 100, "%c", &data_))
+        stream << &buf[0] << " UTC";
 #endif
 }
 
