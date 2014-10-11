@@ -597,6 +597,11 @@ class toml_parse_exception : public std::runtime_error
     toml_parse_exception(const std::string& err) : std::runtime_error{err}
     {
     }
+
+    toml_parse_exception(const std::string& err, std::size_t line_number) :
+        std::runtime_error{err + " at line " + std::to_string(line_number)}
+    {
+    }
 };
 
 /**
@@ -624,6 +629,7 @@ class parser
 
         while (std::getline(input_, line_))
         {
+            line_number_++;
             auto it = line_.begin();
             auto end = line_.end();
             consume_whitespace(it, end);
@@ -644,13 +650,27 @@ class parser
     }
 
   private:
+#if defined __has_feature
+    #if __has_feature(attribute_analyzer_noreturn)
+    __attribute__((analyzer_noreturn))
+    #endif
+#elif defined _MSC_VER
+    __declspec(noreturn)
+#elif defined __GNUC__
+    __attribute__((noreturn))
+#endif
+    void throw_parse_exception(const std::string& err)
+    {
+        throw toml_parse_exception{err, line_number_};
+    }
+
     void parse_group(std::string::iterator& it,
                      const std::string::iterator& end, toml_group*& curr_group)
     {
         // remove the beginning keygroup marker
         ++it;
         if (it == end)
-            throw toml_parse_exception{"Unexpected end of keygroup"};
+            throw_parse_exception("Unexpected end of keygroup");
         if (*it == '[')
             parse_group_array(it, end, curr_group);
         else
@@ -663,13 +683,13 @@ class parser
     {
         auto ob = std::find(it, end, '[');
         if (ob != end)
-            throw toml_parse_exception{"Cannot have [ in keygroup name"};
+            throw_parse_exception("Cannot have [ in keygroup name");
         auto kg_end = std::find(it, end, ']');
         if (it == kg_end)
-            throw toml_parse_exception{"Empty keygroup"};
+            throw_parse_exception("Empty keygroup");
         std::string group{it, kg_end};
         if (groups_.find(group) != groups_.end())
-            throw toml_parse_exception{"Duplicate keygroup"};
+            throw_parse_exception("Duplicate keygroup");
         groups_.insert({it, kg_end});
         while (it != kg_end)
         {
@@ -677,7 +697,7 @@ class parser
             // get the key part
             std::string part{it, dot};
             if (part.empty())
-                throw toml_parse_exception{"Empty keygroup part"};
+                throw_parse_exception("Empty keygroup part");
             it = dot;
             if (it != kg_end)
                 ++it;
@@ -693,8 +713,8 @@ class parser
                                      .back()
                                      .get();
                 else
-                    throw toml_parse_exception{
-                        "Keygroup already exists as a value"};
+                    throw_parse_exception(
+                        "Keygroup already exists as a value");
             }
             else
             {
@@ -715,21 +735,21 @@ class parser
         ++it;
         auto ob = std::find(it, end, '[');
         if (ob != end)
-            throw toml_parse_exception{"Cannot have [ in keygroup name"};
+            throw_parse_exception("Cannot have [ in keygroup name");
         auto kg_end = std::find(it, end, ']');
         if (kg_end == end)
-            throw toml_parse_exception{"Unterminated keygroup array"};
+            throw_parse_exception("Unterminated keygroup array");
         if (it == kg_end)
-            throw toml_parse_exception{"Empty keygroup"};
+            throw_parse_exception("Empty keygroup");
         auto kga_end = kg_end;
         if (*++kga_end != ']')
-            throw toml_parse_exception{"Invalid keygroup array specifier"};
+            throw_parse_exception("Invalid keygroup array specifier");
         while (it != kg_end)
         {
             auto dot = std::find(it, kg_end, '.');
             std::string part{it, dot};
             if (part.empty())
-                throw toml_parse_exception{"Empty keygroup part"};
+                throw_parse_exception("Empty keygroup part");
             it = dot;
             if (it != kg_end)
                 ++it;
@@ -739,7 +759,7 @@ class parser
                 if (it == kg_end)
                 {
                     if (!b->is_group_array())
-                        throw toml_parse_exception{"Expected keygroup array"};
+                        throw_parse_exception("Expected keygroup array");
                     auto v = std::static_pointer_cast<toml_group_array>(b);
                     v->array().push_back(std::make_shared<toml_group>());
                     curr_group = v->array().back().get();
@@ -755,8 +775,8 @@ class parser
                                 .back()
                                 .get();
                     else
-                        throw toml_parse_exception{
-                            "Keygroup already exists as a value"};
+                        throw_parse_exception(
+                            "Keygroup already exists as a value");
                 }
             }
             else
@@ -785,9 +805,9 @@ class parser
     {
         std::string key = parse_key(it, end);
         if (curr_group->contains(key))
-            throw toml_parse_exception{"Key " + key + " already present"};
+            throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
-            throw toml_parse_exception{"Value must follow after a '='"};
+            throw_parse_exception("Value must follow after a '='");
         ++it;
         consume_whitespace(it, end);
         curr_group->insert(key, parse_value(it, end));
@@ -806,7 +826,7 @@ class parser
         ++key_end;
         std::string key{it, key_end};
         if (std::find(it, key_end, '#') != key_end)
-            throw toml_parse_exception{"Key " + key + " cannot contain #"};
+            throw_parse_exception("Key " + key + " cannot contain #");
         it = eq;
         consume_whitespace(it, end);
         return key;
@@ -840,7 +860,7 @@ class parser
             case parse_type::ARRAY:
                 return parse_array(it, end);
             default:
-                throw toml_parse_exception{"Failed to parse value"};
+                throw_parse_exception("Failed to parse value");
         }
     }
 
@@ -867,7 +887,7 @@ class parser
         {
             return parse_type::ARRAY;
         }
-        throw toml_parse_exception{"Failed to parse value type"};
+        throw_parse_exception("Failed to parse value type");
     }
 
     parse_type determine_number_type(const std::string::iterator& it,
@@ -916,7 +936,7 @@ class parser
                 value += *it++;
             }
         }
-        throw toml_parse_exception{"Unterminated string literal"};
+        throw_parse_exception("Unterminated string literal");
     }
 
     char parse_escape_code(std::string::iterator& it,
@@ -924,7 +944,7 @@ class parser
     {
         ++it;
         if (it == end)
-            throw toml_parse_exception{"Invalid escape sequence"};
+            throw_parse_exception("Invalid escape sequence");
         char value;
         if (*it == 'b')
         {
@@ -960,7 +980,7 @@ class parser
         }
         else
         {
-            throw toml_parse_exception{"Invalid escape sequence"};
+            throw_parse_exception("Invalid escape sequence");
         }
         ++it;
         return value;
@@ -979,7 +999,7 @@ class parser
         {
             ++check_it;
             if (check_it == end)
-                throw toml_parse_exception{"Floats must have trailing digits"};
+                throw_parse_exception("Floats must have trailing digits");
             while (check_it != end && is_number(*check_it))
                 ++check_it;
             return parse_float(it, check_it);
@@ -1018,8 +1038,8 @@ class parser
         else if (v == "false")
             return std::make_shared<toml_value<bool>>(false);
         else
-            throw toml_parse_exception{
-                "Attempted to parse invalid boolean value"};
+            throw_parse_exception(
+                "Attempted to parse invalid boolean value");
     }
 
     std::shared_ptr<toml_value<std::tm>>
@@ -1122,7 +1142,7 @@ class parser
             case parse_type::ARRAY:
                 return parse_nested_array(it, end);
             default:
-                throw toml_parse_exception{"Unable to parse array"};
+                throw_parse_exception("Unable to parse array");
         }
     }
 
@@ -1137,7 +1157,7 @@ class parser
             if (auto v = value->as<Value>())
                 arr->array().push_back(value);
             else
-                throw toml_parse_exception{"Arrays must be heterogeneous"};
+                throw_parse_exception("Arrays must be heterogeneous");
             skip_whitespace_and_comments(it, end);
             if (*it != ',')
                 break;
@@ -1174,7 +1194,8 @@ class parser
         while (start == end || *start == '#')
         {
             if (!std::getline(input_, line_))
-                throw toml_parse_exception{"Unclosed array"};
+                throw_parse_exception("Unclosed array");
+            line_number_++;
             start = line_.begin();
             end = line_.end();
             consume_whitespace(start, end);
@@ -1199,9 +1220,9 @@ class parser
                         const std::string::iterator& end)
     {
         if (it != end && *it != '#')
-            throw toml_parse_exception{"Unidentified trailing character " +
+            throw_parse_exception("Unidentified trailing character " +
                                        std::string{*it} +
-                                       "---did you forget a '#'?"};
+                                       "---did you forget a '#'?");
     }
 
     bool is_number(char c)
@@ -1230,6 +1251,7 @@ class parser
 
     std::istream& input_;
     std::string line_;
+    std::size_t line_number_ = 0;
     std::unordered_set<std::string> groups_;
 };
 
