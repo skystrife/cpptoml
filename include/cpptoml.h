@@ -222,11 +222,11 @@ template <>
 inline void toml_value<std::tm>::print(std::ostream& stream) const
 {
 #if CPPTOML_HAS_STD_PUT_TIME
-    stream << std::put_time(&data_, "%c %Z");
+    stream << std::put_time(&data_, "%c");
 #else
     std::array<char, 100> buf;
-    if (std::strftime(&buf[0], 100, "%c %Z", &data_))
-        stream << &buf[0];
+    if (std::strftime(&buf[0], 100, "%c", &data_))
+        stream << &buf[0] << " UTC";
 #endif
 }
 
@@ -271,7 +271,7 @@ class toml_array : public toml_base
         return values_;
     }
 
-    std::shared_ptr<toml_base> at(uint64_t idx) const
+    std::shared_ptr<toml_base> at(size_t idx) const
     {
         return values_.at(idx);
     }
@@ -611,6 +611,8 @@ class parser
     parser(std::istream& stream) : input_(stream)
     {
     }
+
+    parser& operator=(const parser& parser) = delete;
 
     /**
      * Parses the stream this parser was created on until EOF.
@@ -1069,19 +1071,6 @@ class parser
         date.tm_sec = sec;
 #endif
 
-        // correctly fill in missing values
-        // "portable" version of timegm()
-        char* tz = getenv("TZ");
-        setenv("TZ", "", 1);
-        tzset();
-        time_t t = mktime(&date);
-        date = *gmtime(&t);
-        if (tz)
-            setenv("TZ", tz, 1);
-        else
-            unsetenv("TZ");
-        tzset();
-
         return std::make_shared<toml_value<std::tm>>(date);
     }
 
@@ -1222,9 +1211,18 @@ class parser
         std::regex pattern{"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"};
         return std::regex_match(to_match, pattern);
 #else
-        return to_match[4] == '-' && to_match[7] == '-' &&
+        int year;
+        int month;
+        int day;
+        int hour;
+        int min;
+        int sec;
+        return to_match.length() == 20 &&
+               to_match[4] == '-' && to_match[7] == '-' &&
                to_match[10] == 'T' && to_match[13] == ':' &&
-               to_match[16] == ':' && to_match[19] == 'Z';
+               to_match[16] == ':' && to_match[19] == 'Z' &&
+               std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year, &month, &day,
+                           &hour, &min, &sec) == 6;
 #endif
     }
 
