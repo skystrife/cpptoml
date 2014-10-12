@@ -407,15 +407,7 @@ class toml_group : public toml_base
      */
     bool contains(const std::string& key) const
     {
-        try
-        {
-            resolve_qualified(key);
-            return true;
-        }
-        catch (std::out_of_range&)
-        {
-            return false;
-        }
+        return resolve_qualified(key);
     }
 
     /**
@@ -427,7 +419,9 @@ class toml_group : public toml_base
      */
     std::shared_ptr<toml_base> get(const std::string& key) const
     {
-        return resolve_qualified(key);
+        std::shared_ptr<toml_base> p;
+        resolve_qualified(key, &p);
+        return p;
     }
 
     /**
@@ -527,7 +521,13 @@ class toml_group : public toml_base
         return result;
     }
 
-    std::shared_ptr<toml_base> resolve_qualified(const std::string& key) const
+    // If output parameter p is specified, fill it with the pointer to the
+    // specified entry and throw std::out_of_range if it couldn't be found.
+    //
+    // Otherwise, just return true if the entry could be found or false
+    // otherwise and do not throw.
+    bool resolve_qualified(const std::string& key,
+                           std::shared_ptr<toml_base>* p = nullptr) const
     {
         auto parts = split(key, '.');
         auto last_key = parts.back();
@@ -538,9 +538,19 @@ class toml_group : public toml_base
         {
             group = group->get_group(part).get();
             if (!group)
+            {
+                if (!p)
+                    return false;
+
                 throw std::out_of_range{key + " is not a valid key"};
+            }
         }
-        return group->map_.at(last_key);
+
+        if (!p)
+            return group->map_.count(last_key) != 0;
+
+        *p = group->map_.at(last_key);
+        return true;
     }
 
     void print(std::ostream& stream, size_t depth) const
