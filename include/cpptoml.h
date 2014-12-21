@@ -662,11 +662,7 @@ class parser
     }
 
   private:
-#if defined __has_feature
-    #if __has_feature(attribute_analyzer_noreturn)
-    __attribute__((analyzer_noreturn))
-    #endif
-#elif defined _MSC_VER
+#if defined _MSC_VER
     __declspec(noreturn)
 #elif defined __GNUC__
     __attribute__((noreturn))
