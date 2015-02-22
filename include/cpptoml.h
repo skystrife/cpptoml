@@ -902,6 +902,19 @@ class parser
                           const std::string::iterator& end)
     {
         consume_whitespace(it, end);
+        if (*it == '"')
+        {
+            return parse_quoted_key(it, end);
+        }
+        else
+        {
+            return parse_basic_key(it, end);
+        }
+    }
+
+    std::string parse_basic_key(std::string::iterator& it,
+                                const std::string::iterator& end)
+    {
         auto eq = std::find(it, end, '=');
         auto key_end = eq;
         --key_end;
@@ -925,6 +938,12 @@ class parser
         it = eq;
         consume_whitespace(it, end);
         return key;
+    }
+
+    std::string parse_quoted_key(std::string::iterator& it,
+                                 const std::string::iterator& end)
+    {
+        return string_literal(it, end);
     }
 
     enum class parse_type
@@ -1011,6 +1030,11 @@ class parser
         parse_string(std::string::iterator& it,
                      const std::string::iterator& end)
     {
+        return std::make_shared<value<std::string>>(string_literal(it, end));
+    }
+
+    std::string string_literal(std::string::iterator& it, const std::string::iterator& end)
+    {
         ++it;
         std::string val;
         while (it != end)
@@ -1024,7 +1048,7 @@ class parser
             {
                 ++it;
                 consume_whitespace(it, end);
-                return std::make_shared<value<std::string>>(val);
+                return val;
             }
             else
             {
