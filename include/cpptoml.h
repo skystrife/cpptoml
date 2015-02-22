@@ -403,13 +403,30 @@ class table : public base
     }
 
     /**
+     * Determines if this key table contains the given key.
+     */
+    bool contains(const std::string& key) const
+    {
+        return map_.find(key) != map_.end();
+    }
+
+    /**
      * Determines if this key table contains the given key. Will
      * resolve "qualified keys". Qualified keys are the full access
      * path separated with dots like "grandparent.parent.child".
      */
-    bool contains(const std::string& key) const
+    bool contains_qualified(const std::string& key) const
     {
         return resolve_qualified(key);
+    }
+
+    /**
+     * Obtains the base for a given key.
+     * @throw std::out_of_range if the key does not exist
+     */
+    std::shared_ptr<base> get(const std::string& key) const
+    {
+        return map_.at(key);
     }
 
     /**
@@ -419,7 +436,7 @@ class table : public base
      *
      * @throw std::out_of_range if the key does not exist
      */
-    std::shared_ptr<base> get(const std::string& key) const
+    std::shared_ptr<base> get_qualified(const std::string& key) const
     {
         std::shared_ptr<base> p;
         resolve_qualified(key, &p);
@@ -427,8 +444,7 @@ class table : public base
     }
 
     /**
-     * Obtains a table for a given key, if possible. Will resolve
-     * "qualified keys".
+     * Obtains a table for a given key, if possible.
      */
     std::shared_ptr<table> get_table(const std::string& key) const
     {
@@ -438,7 +454,18 @@ class table : public base
     }
 
     /**
-     * Obtains an array for a given key. Will resolve "qualified keys".
+     * Obtains a table for a given key, if possible. Will resolve
+     * "qualified keys".
+     */
+    std::shared_ptr<table> get_table_qualified(const std::string& key) const
+    {
+        if (contains_qualified(key) && get_qualified(key)->is_table())
+            return std::static_pointer_cast<table>(get_qualified(key));
+        return nullptr;
+    }
+
+    /**
+     * Obtains an array for a given key.
      */
     std::shared_ptr<array> get_array(const std::string& key) const
     {
@@ -448,8 +475,17 @@ class table : public base
     }
 
     /**
-     * Obtains a table_array for a given key, if possible. Will
-     * resolve "qualified keys".
+     * Obtains an array for a given key. Will resolve "qualified keys".
+     */
+    std::shared_ptr<array> get_array_qualified(const std::string& key) const
+    {
+        if (!contains_qualified(key))
+            return nullptr;
+        return get_qualified(key)->as_array();
+    }
+
+    /**
+     * Obtains a table_array for a given key, if possible.
      */
     std::shared_ptr<table_array> get_table_array(const std::string& key) const
     {
@@ -459,9 +495,20 @@ class table : public base
     }
 
     /**
-     * Helper function that attempts to get a value corresponding
-     * to the template parameter from a given key. Will resolve
+     * Obtains a table_array for a given key, if possible. Will resolve
      * "qualified keys".
+     */
+    std::shared_ptr<table_array>
+        get_table_array_qualified(const std::string& key) const
+    {
+        if (!contains_qualified(key))
+            return nullptr;
+        return get_qualified(key)->as_table_array();
+    }
+
+    /**
+     * Helper function that attempts to get a value corresponding
+     * to the template parameter from a given key.
      */
     template <class T>
     option<T> get_as(const std::string& key) const
@@ -469,6 +516,27 @@ class table : public base
         try
         {
             if (auto v = get(key)->as<T>())
+                return {v->value()};
+            else
+                return {};
+        }
+        catch (const std::out_of_range&)
+        {
+            return {};
+        }
+    }
+
+    /**
+     * Helper function that attempts to get a value corresponding
+     * to the template parameter from a given key. Will resolve "qualified
+     * keys".
+     */
+    template <class T>
+    option<T> get_qualified_as(const std::string& key) const
+    {
+        try
+        {
+            if (auto v = get_qualified(key)->as<T>())
                 return {v->value()};
             else
                 return {};
