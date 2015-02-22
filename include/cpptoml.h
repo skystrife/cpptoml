@@ -864,8 +864,8 @@ class parser
             {
                 auto b = curr_table->get(part);
 
-                // if this is the end of the keygroup, add an element to
-                // the table array that we just looked up
+                // if this is the end of the table array name, add an
+                // element to the table array that we just looked up
                 if (it != end && *it == ']')
                 {
                     if (!b->is_table_array())
@@ -892,6 +892,9 @@ class parser
             }
             else
             {
+                // if this is the end of the table array name, add a new
+                // table array and a new table inside that array for us to
+                // add keys to next
                 if (it != end && *it == ']')
                 {
                     curr_table->insert(part, std::make_shared<table_array>());
@@ -900,6 +903,8 @@ class parser
                     arr->get().push_back(std::make_shared<table>());
                     curr_table = arr->get().back().get();
                 }
+                // otherwise, create the implicitly defined table and move
+                // down to it
                 else
                 {
                     curr_table->insert(part, std::make_shared<table>());
