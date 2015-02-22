@@ -908,11 +908,11 @@ class parser
         }
         else
         {
-            return parse_basic_key(it, end);
+            return parse_bare_key(it, end);
         }
     }
 
-    std::string parse_basic_key(std::string::iterator& it,
+    std::string parse_bare_key(std::string::iterator& it,
                                 const std::string::iterator& end)
     {
         auto eq = std::find(it, end, '=');
