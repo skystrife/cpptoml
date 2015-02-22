@@ -59,16 +59,16 @@ class option
 };
 
 template <class T>
-class toml_value;
+class value;
 
-class toml_array;
-class toml_group;
-class toml_group_array;
+class array;
+class table;
+class table_array;
 
 /**
  * A generic base TOML value used for type erasure.
  */
-class toml_base : public std::enable_shared_from_this<toml_base>
+class base : public std::enable_shared_from_this<base>
 {
   public:
     /**
@@ -80,20 +80,20 @@ class toml_base : public std::enable_shared_from_this<toml_base>
     }
 
     /**
-     * Determines if the given TOML element is a group.
+     * Determines if the given TOML element is a table.
      */
-    virtual bool is_group() const
+    virtual bool is_table() const
     {
         return false;
     }
 
     /**
-     * Converts the TOML element into a group.
+     * Converts the TOML element into a table.
      */
-    std::shared_ptr<toml_group> as_group()
+    std::shared_ptr<table> as_table()
     {
-        if (is_group())
-            return std::static_pointer_cast<toml_group>(shared_from_this());
+        if (is_table())
+            return std::static_pointer_cast<table>(shared_from_this());
         return nullptr;
     }
     /**
@@ -107,29 +107,28 @@ class toml_base : public std::enable_shared_from_this<toml_base>
     /**
      * Converts the TOML element to an array.
      */
-    std::shared_ptr<toml_array> as_array()
+    std::shared_ptr<array> as_array()
     {
         if (is_array())
-            return std::static_pointer_cast<toml_array>(shared_from_this());
+            return std::static_pointer_cast<array>(shared_from_this());
         return nullptr;
     }
 
     /**
-     * Determines if the given TOML element is an array of groups.
+     * Determines if the given TOML element is an array of tables.
      */
-    virtual bool is_group_array() const
+    virtual bool is_table_array() const
     {
         return false;
     }
 
     /**
-     * Converts the TOML element into a group array.
+     * Converts the TOML element into a table array.
      */
-    std::shared_ptr<toml_group_array> as_group_array()
+    std::shared_ptr<table_array> as_table_array()
     {
-        if (is_group_array())
-            return std::static_pointer_cast<toml_group_array>(
-                shared_from_this());
+        if (is_table_array())
+            return std::static_pointer_cast<table_array>(shared_from_this());
         return nullptr;
     }
 
@@ -143,31 +142,31 @@ class toml_base : public std::enable_shared_from_this<toml_base>
      * of type T.
      */
     template <class T>
-    std::shared_ptr<toml_value<T>> as();
+    std::shared_ptr<value<T>> as();
 };
 
 template <class T>
 struct valid_value
 {
-    const static bool value =
-        std::is_same<T, std::string>::value ||
-        std::is_same<T, int64_t>::value || std::is_same<T, double>::value ||
-        std::is_same<T, bool>::value || std::is_same<T, std::tm>::value;
+    const static bool value
+        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
+          || std::is_same<T, double>::value || std::is_same<T, bool>::value
+          || std::is_same<T, std::tm>::value;
 };
 
 /**
  * A concrete TOML value representing the "leaves" of the "tree".
  */
 template <class T>
-class toml_value : public toml_base
+class value : public base
 {
   public:
-    static_assert(valid_value<T>::value, "invalid toml_value type");
+    static_assert(valid_value<T>::value, "invalid value type");
 
     /**
      * Constructs a value from the given data.
      */
-    toml_value(const T& val) : data_{val}
+    value(const T& val) : data_{val}
     {
     }
 
@@ -179,7 +178,7 @@ class toml_value : public toml_base
     /**
      * Gets the data associated with this value.
      */
-    T& value()
+    T& get()
     {
         return data_;
     }
@@ -187,7 +186,7 @@ class toml_value : public toml_base
     /**
      * Gets the data associated with this value. Const version.
      */
-    const T& value() const
+    const T& get() const
     {
         return data_;
     }
@@ -203,14 +202,14 @@ class toml_value : public toml_base
 
 // I don't think I'll ever comprehend why this is needed...
 template <>
-inline toml_value<std::tm>::toml_value(const std::tm& date)
+inline value<std::tm>::value(const std::tm& date)
 {
     data_ = date;
 }
 
 // specializations for printing nicely
 template <>
-inline void toml_value<bool>::print(std::ostream& stream) const
+inline void value<bool>::print(std::ostream& stream) const
 {
     if (data_)
         stream << "true";
@@ -219,7 +218,7 @@ inline void toml_value<bool>::print(std::ostream& stream) const
 }
 
 template <>
-inline void toml_value<std::tm>::print(std::ostream& stream) const
+inline void value<std::tm>::print(std::ostream& stream) const
 {
 #if CPPTOML_HAS_STD_PUT_TIME
     stream << std::put_time(&data_, "%c");
@@ -231,20 +230,20 @@ inline void toml_value<std::tm>::print(std::ostream& stream) const
 }
 
 template <class T>
-inline std::shared_ptr<toml_value<T>> toml_base::as()
+inline std::shared_ptr<value<T>> base::as()
 {
-    if (auto v = std::dynamic_pointer_cast<toml_value<T>>(shared_from_this()))
+    if (auto v = std::dynamic_pointer_cast<value<T>>(shared_from_this()))
         return v;
     return nullptr;
 }
 
-class toml_array : public toml_base
+class array : public base
 {
   public:
-    toml_array() = default;
+    array() = default;
 
     template <class InputIterator>
-    toml_array(InputIterator begin, InputIterator end)
+    array(InputIterator begin, InputIterator end)
         : values_{begin, end}
     {
         // nothing
@@ -256,56 +255,58 @@ class toml_array : public toml_base
     }
 
     /**
-     * Obtains the array (vector) of toml_base values.
+     * Obtains the array (vector) of base values.
      */
-    std::vector<std::shared_ptr<toml_base>>& array()
+    std::vector<std::shared_ptr<base>>& get()
     {
         return values_;
     }
 
     /**
-     * Obtains the array (vector) of toml_base values. Const version.
+     * Obtains the array (vector) of base values. Const version.
      */
-    const std::vector<std::shared_ptr<toml_base>>& array() const
+    const std::vector<std::shared_ptr<base>>& get() const
     {
         return values_;
     }
 
-    std::shared_ptr<toml_base> at(size_t idx) const
+    std::shared_ptr<base> at(size_t idx) const
     {
         return values_.at(idx);
     }
 
     /**
-     * Obtains an array of toml_value<T>s. Note that elements may be
-     * nullptr if they cannot be converted to a toml_value<T>.
+     * Obtains an array of value<T>s. Note that elements may be
+     * nullptr if they cannot be converted to a value<T>.
      */
     template <class T>
-    std::vector<std::shared_ptr<toml_value<T>>> array_of() const
+    std::vector<std::shared_ptr<value<T>>> array_of() const
     {
-        std::vector<std::shared_ptr<toml_value<T>>> result(values_.size());
+        std::vector<std::shared_ptr<value<T>>> result(values_.size());
 
         std::transform(values_.begin(), values_.end(), result.begin(),
-                       [&](std::shared_ptr<toml_base> v)
-        { return v->as<T>(); });
+                       [&](std::shared_ptr<base> v)
+                       {
+            return v->as<T>();
+        });
 
         return result;
     }
 
     /**
-     * Obtains an array of toml_arrays. Note that elements may be nullptr
-     * if they cannot be converted to a toml_array.
+     * Obtains an array of arrays. Note that elements may be nullptr
+     * if they cannot be converted to a array.
      */
-    std::vector<std::shared_ptr<toml_array>> nested_array() const
+    std::vector<std::shared_ptr<array>> nested_array() const
     {
-        std::vector<std::shared_ptr<toml_array>> result(values_.size());
+        std::vector<std::shared_ptr<array>> result(values_.size());
 
         std::transform(values_.begin(), values_.end(), result.begin(),
-                       [&](std::shared_ptr<toml_base> v)
-        {
+                       [&](std::shared_ptr<base> v)
+                       {
             if (v->is_array())
-                return std::static_pointer_cast<toml_array>(v);
-            return std::shared_ptr<toml_array>{};
+                return std::static_pointer_cast<array>(v);
+            return std::shared_ptr<array>{};
         });
 
         return result;
@@ -325,22 +326,22 @@ class toml_array : public toml_base
     }
 
   private:
-    std::vector<std::shared_ptr<toml_base>> values_;
+    std::vector<std::shared_ptr<base>> values_;
 };
 
-class toml_group;
+class table;
 
-class toml_group_array : public toml_base
+class table_array : public base
 {
-    friend class toml_group;
+    friend class table;
 
   public:
-    virtual bool is_group_array() const override
+    virtual bool is_table_array() const override
     {
         return true;
     }
 
-    std::vector<std::shared_ptr<toml_group>>& array()
+    std::vector<std::shared_ptr<table>>& get()
     {
         return array_;
     }
@@ -353,27 +354,28 @@ class toml_group_array : public toml_base
   private:
     void print(std::ostream& stream, size_t depth,
                const std::string& key) const;
-    std::vector<std::shared_ptr<toml_group>> array_;
+    std::vector<std::shared_ptr<table>> array_;
 };
 
 /**
- * Represents a TOML keygroup.
+ * Represents a TOML keytable.
  */
-class toml_group : public toml_base
+class table : public base
 {
   public:
-    friend class toml_group_array;
+    friend class table_array;
     /**
-     * toml_groups can be iterated over.
+     * tables can be iterated over.
      */
-    using iterator =
-        std::unordered_map<std::string, std::shared_ptr<toml_base>>::iterator;
+    using iterator
+        = std::unordered_map<std::string, std::shared_ptr<base>>::iterator;
 
     /**
-     * toml_groups can be iterated over. Const version.
+     * tables can be iterated over. Const version.
      */
-    using const_iterator = std::unordered_map<
-        std::string, std::shared_ptr<toml_base>>::const_iterator;
+    using const_iterator
+        = std::unordered_map<std::string,
+                             std::shared_ptr<base>>::const_iterator;
 
     iterator begin()
     {
@@ -395,13 +397,13 @@ class toml_group : public toml_base
         return map_.end();
     }
 
-    bool is_group() const override
+    bool is_table() const override
     {
         return true;
     }
 
     /**
-     * Determines if this key group contains the given key. Will
+     * Determines if this key table contains the given key. Will
      * resolve "qualified keys". Qualified keys are the full access
      * path separated with dots like "grandparent.parent.child".
      */
@@ -411,34 +413,34 @@ class toml_group : public toml_base
     }
 
     /**
-     * Obtains the toml_base for a given key. Will resolve "qualified
+     * Obtains the base for a given key. Will resolve "qualified
      * keys". Qualified keys are the full access path separated with
      * dots like "grandparent.parent.child".
      *
      * @throw std::out_of_range if the key does not exist
      */
-    std::shared_ptr<toml_base> get(const std::string& key) const
+    std::shared_ptr<base> get(const std::string& key) const
     {
-        std::shared_ptr<toml_base> p;
+        std::shared_ptr<base> p;
         resolve_qualified(key, &p);
         return p;
     }
 
     /**
-     * Obtains a toml_group for a given key, if possible. Will resolve
+     * Obtains a table for a given key, if possible. Will resolve
      * "qualified keys".
      */
-    std::shared_ptr<toml_group> get_group(const std::string& key) const
+    std::shared_ptr<table> get_table(const std::string& key) const
     {
-        if (contains(key) && get(key)->is_group())
-            return std::static_pointer_cast<toml_group>(get(key));
+        if (contains(key) && get(key)->is_table())
+            return std::static_pointer_cast<table>(get(key));
         return nullptr;
     }
 
     /**
      * Obtains an array for a given key. Will resolve "qualified keys".
      */
-    std::shared_ptr<toml_array> get_array(const std::string& key) const
+    std::shared_ptr<array> get_array(const std::string& key) const
     {
         if (!contains(key))
             return nullptr;
@@ -446,19 +448,18 @@ class toml_group : public toml_base
     }
 
     /**
-     * Obtains a toml_group_array for a given key, if possible. Will
+     * Obtains a table_array for a given key, if possible. Will
      * resolve "qualified keys".
      */
-    std::shared_ptr<toml_group_array>
-        get_group_array(const std::string& key) const
+    std::shared_ptr<table_array> get_table_array(const std::string& key) const
     {
         if (!contains(key))
             return nullptr;
-        return get(key)->as_group_array();
+        return get(key)->as_table_array();
     }
 
     /**
-     * Helper function that attempts to get a toml_value corresponding
+     * Helper function that attempts to get a value corresponding
      * to the template parameter from a given key. Will resolve
      * "qualified keys".
      */
@@ -479,26 +480,25 @@ class toml_group : public toml_base
     }
 
     /**
-     * Adds an element to the keygroup.
+     * Adds an element to the keytable.
      */
-    void insert(const std::string& key, const std::shared_ptr<toml_base>& value)
+    void insert(const std::string& key, const std::shared_ptr<base>& value)
     {
         map_[key] = value;
     }
 
     /**
      * Convenience shorthand for adding a simple element to the
-     * keygroup.
+     * keytable.
      */
     template <class T>
-    void insert(const std::string& key, T&& value,
+    void insert(const std::string& key, T&& val,
                 typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
-        insert(key, std::make_shared<toml_value<T>>(value));
+        insert(key, std::make_shared<value<T>>(val));
     }
 
-    friend std::ostream& operator<<(std::ostream& stream,
-                                    const toml_group& group);
+    friend std::ostream& operator<<(std::ostream& stream, const table& table);
 
     void print(std::ostream& stream) const override
     {
@@ -527,17 +527,17 @@ class toml_group : public toml_base
     // Otherwise, just return true if the entry could be found or false
     // otherwise and do not throw.
     bool resolve_qualified(const std::string& key,
-                           std::shared_ptr<toml_base>* p = nullptr) const
+                           std::shared_ptr<base>* p = nullptr) const
     {
         auto parts = split(key, '.');
         auto last_key = parts.back();
         parts.pop_back();
 
-        auto group = this;
+        auto table = this;
         for (const auto& part : parts)
         {
-            group = group->get_group(part).get();
-            if (!group)
+            table = table->get_table(part).get();
+            if (!table)
             {
                 if (!p)
                     return false;
@@ -547,9 +547,9 @@ class toml_group : public toml_base
         }
 
         if (!p)
-            return group->map_.count(last_key) != 0;
+            return table->map_.count(last_key) != 0;
 
-        *p = group->map_.at(last_key);
+        *p = table->map_.at(last_key);
         return true;
     }
 
@@ -557,17 +557,17 @@ class toml_group : public toml_base
     {
         for (auto& p : map_)
         {
-            if (p.second->is_group_array())
+            if (p.second->is_table_array())
             {
-                auto ga = std::dynamic_pointer_cast<toml_group_array>(p.second);
+                auto ga = std::dynamic_pointer_cast<table_array>(p.second);
                 ga->print(stream, depth, p.first);
             }
             else
             {
                 stream << std::string(depth, '\t') << p.first << " = ";
-                if (p.second->is_group())
+                if (p.second->is_table())
                 {
-                    auto g = static_cast<toml_group*>(p.second.get());
+                    auto g = static_cast<table*>(p.second.get());
                     stream << '\n';
                     g->print(stream, depth + 1);
                 }
@@ -579,11 +579,11 @@ class toml_group : public toml_base
             }
         }
     }
-    std::unordered_map<std::string, std::shared_ptr<toml_base>> map_;
+    std::unordered_map<std::string, std::shared_ptr<base>> map_;
 };
 
-inline void toml_group_array::print(std::ostream& stream, size_t depth,
-                                    const std::string& key) const
+inline void table_array::print(std::ostream& stream, size_t depth,
+                               const std::string& key) const
 {
     for (auto g : array_)
     {
@@ -592,24 +592,24 @@ inline void toml_group_array::print(std::ostream& stream, size_t depth,
     }
 }
 
-inline std::ostream& operator<<(std::ostream& stream, const toml_group& group)
+inline std::ostream& operator<<(std::ostream& stream, const table& table)
 {
-    group.print(stream);
+    table.print(stream);
     return stream;
 }
 
 /**
  * Exception class for all TOML parsing errors.
  */
-class toml_parse_exception : public std::runtime_error
+class parse_exception : public std::runtime_error
 {
   public:
-    toml_parse_exception(const std::string& err) : std::runtime_error{err}
+    parse_exception(const std::string& err) : std::runtime_error{err}
     {
     }
 
-    toml_parse_exception(const std::string& err, std::size_t line_number) :
-        std::runtime_error{err + " at line " + std::to_string(line_number)}
+    parse_exception(const std::string& err, std::size_t line_number)
+        : std::runtime_error{err + " at line " + std::to_string(line_number)}
     {
     }
 };
@@ -631,13 +631,13 @@ class parser
 
     /**
      * Parses the stream this parser was created on until EOF.
-     * @throw toml_parse_exception if there are errors in parsing
+     * @throw parse_exception if there are errors in parsing
      */
-    toml_group parse()
+    table parse()
     {
-        toml_group root;
+        table root;
 
-        toml_group* curr_group = &root;
+        table* curr_table = &root;
 
         while (std::getline(input_, line_))
         {
@@ -649,15 +649,15 @@ class parser
                 continue;
             if (*it == '[')
             {
-                curr_group = &root;
-                parse_group(it, end, curr_group);
+                curr_table = &root;
+                parse_table(it, end, curr_table);
             }
             else
             {
-                parse_key_value(it, end, curr_group);
+                parse_key_value(it, end, curr_table);
             }
         }
-        groups_.clear();
+        tables_.clear();
         return root;
     }
 
@@ -667,68 +667,66 @@ class parser
 #elif defined __GNUC__
     __attribute__((noreturn))
 #endif
-    void throw_parse_exception(const std::string& err)
+        void throw_parse_exception(const std::string& err)
     {
-        throw toml_parse_exception{err, line_number_};
+        throw parse_exception{err, line_number_};
     }
 
-    void parse_group(std::string::iterator& it,
-                     const std::string::iterator& end, toml_group*& curr_group)
+    void parse_table(std::string::iterator& it,
+                     const std::string::iterator& end, table*& curr_table)
     {
-        // remove the beginning keygroup marker
+        // remove the beginning keytable marker
         ++it;
         if (it == end)
-            throw_parse_exception("Unexpected end of keygroup");
+            throw_parse_exception("Unexpected end of keytable");
         if (*it == '[')
-            parse_group_array(it, end, curr_group);
+            parse_table_array(it, end, curr_table);
         else
-            parse_single_group(it, end, curr_group);
+            parse_single_table(it, end, curr_table);
     }
 
-    void parse_single_group(std::string::iterator& it,
+    void parse_single_table(std::string::iterator& it,
                             const std::string::iterator& end,
-                            toml_group*& curr_group)
+                            table*& curr_table)
     {
         auto ob = std::find(it, end, '[');
         if (ob != end)
-            throw_parse_exception("Cannot have [ in keygroup name");
+            throw_parse_exception("Cannot have [ in keytable name");
         auto kg_end = std::find(it, end, ']');
         if (it == kg_end)
-            throw_parse_exception("Empty keygroup");
-        std::string group{it, kg_end};
-        if (groups_.find(group) != groups_.end())
-            throw_parse_exception("Duplicate keygroup");
-        groups_.insert({it, kg_end});
+            throw_parse_exception("Empty keytable");
+        std::string table_name{it, kg_end};
+        if (tables_.find(table_name) != tables_.end())
+            throw_parse_exception("Duplicate keytable");
+        tables_.insert({it, kg_end});
         while (it != kg_end)
         {
             auto dot = std::find(it, kg_end, '.');
             // get the key part
             std::string part{it, dot};
             if (part.empty())
-                throw_parse_exception("Empty keygroup part");
+                throw_parse_exception("Empty keytable part");
             it = dot;
             if (it != kg_end)
                 ++it;
 
-            if (curr_group->contains(part))
+            if (curr_table->contains(part))
             {
-                auto b = curr_group->get(part);
-                if (b->is_group())
-                    curr_group = static_cast<toml_group*>(b.get());
-                else if (b->is_group_array())
-                    curr_group = std::static_pointer_cast<toml_group_array>(b)
-                                     ->array()
+                auto b = curr_table->get(part);
+                if (b->is_table())
+                    curr_table = static_cast<table*>(b.get());
+                else if (b->is_table_array())
+                    curr_table = std::static_pointer_cast<table_array>(b)
+                                     ->get()
                                      .back()
                                      .get();
                 else
-                    throw_parse_exception(
-                        "Keygroup already exists as a value");
+                    throw_parse_exception("Keytable already exists as a value");
             }
             else
             {
-                curr_group->insert(part, std::make_shared<toml_group>());
-                curr_group =
-                    static_cast<toml_group*>(curr_group->get(part).get());
+                curr_table->insert(part, std::make_shared<table>());
+                curr_table = static_cast<table*>(curr_table->get(part).get());
             }
         }
         ++it;
@@ -736,89 +734,86 @@ class parser
         eol_or_comment(it, end);
     }
 
-    void parse_group_array(std::string::iterator& it,
-                           const std::string::iterator& end,
-                           toml_group*& curr_group)
+    void parse_table_array(std::string::iterator& it,
+                           const std::string::iterator& end, table*& curr_table)
     {
         ++it;
         auto ob = std::find(it, end, '[');
         if (ob != end)
-            throw_parse_exception("Cannot have [ in keygroup name");
+            throw_parse_exception("Cannot have [ in keytable name");
         auto kg_end = std::find(it, end, ']');
         if (kg_end == end)
-            throw_parse_exception("Unterminated keygroup array");
+            throw_parse_exception("Unterminated keytable array");
         if (it == kg_end)
-            throw_parse_exception("Empty keygroup");
+            throw_parse_exception("Empty keytable");
         auto kga_end = kg_end;
         if (*++kga_end != ']')
-            throw_parse_exception("Invalid keygroup array specifier");
+            throw_parse_exception("Invalid keytable array specifier");
         while (it != kg_end)
         {
             auto dot = std::find(it, kg_end, '.');
             std::string part{it, dot};
             if (part.empty())
-                throw_parse_exception("Empty keygroup part");
+                throw_parse_exception("Empty keytable part");
             it = dot;
             if (it != kg_end)
                 ++it;
-            if (curr_group->contains(part))
+            if (curr_table->contains(part))
             {
-                auto b = curr_group->get(part);
+                auto b = curr_table->get(part);
                 if (it == kg_end)
                 {
-                    if (!b->is_group_array())
-                        throw_parse_exception("Expected keygroup array");
-                    auto v = std::static_pointer_cast<toml_group_array>(b);
-                    v->array().push_back(std::make_shared<toml_group>());
-                    curr_group = v->array().back().get();
+                    if (!b->is_table_array())
+                        throw_parse_exception("Expected keytable array");
+                    auto v = std::static_pointer_cast<table_array>(b);
+                    v->get().push_back(std::make_shared<table>());
+                    curr_table = v->get().back().get();
                 }
                 else
                 {
-                    if (b->is_group())
-                        curr_group = static_cast<toml_group*>(b.get());
-                    else if (b->is_group_array())
-                        curr_group =
-                            std::static_pointer_cast<toml_group_array>(b)
-                                ->array()
-                                .back()
-                                .get();
+                    if (b->is_table())
+                        curr_table = static_cast<table*>(b.get());
+                    else if (b->is_table_array())
+                        curr_table = std::static_pointer_cast<table_array>(b)
+                                         ->get()
+                                         .back()
+                                         .get();
                     else
                         throw_parse_exception(
-                            "Keygroup already exists as a value");
+                            "Keytable already exists as a value");
                 }
             }
             else
             {
                 if (it == kg_end)
                 {
-                    curr_group->insert(part,
-                                       std::make_shared<toml_group_array>());
-                    auto arr = std::static_pointer_cast<toml_group_array>(
-                        curr_group->get(part));
-                    arr->array().push_back(std::make_shared<toml_group>());
-                    curr_group = arr->array().back().get();
+                    curr_table->insert(part, std::make_shared<table_array>());
+                    auto arr = std::static_pointer_cast<table_array>(
+                        curr_table->get(part));
+                    arr->get().push_back(std::make_shared<table>());
+                    curr_table = arr->get().back().get();
                 }
                 else
                 {
-                    curr_group->insert(part, std::make_shared<toml_group>());
-                    curr_group =
-                        static_cast<toml_group*>(curr_group->get(part).get());
+                    curr_table->insert(part, std::make_shared<table>());
+                    curr_table
+                        = static_cast<table*>(curr_table->get(part).get());
                 }
             }
         }
     }
 
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
-                         toml_group*& curr_group)
+                         table*& curr_table)
     {
         std::string key = parse_key(it, end);
-        if (curr_group->contains(key))
+        if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
             throw_parse_exception("Value must follow after a '='");
         ++it;
         consume_whitespace(it, end);
-        curr_group->insert(key, parse_value(it, end));
+        curr_table->insert(key, parse_value(it, end));
         consume_whitespace(it, end);
         eol_or_comment(it, end);
     }
@@ -850,8 +845,8 @@ class parser
         ARRAY
     };
 
-    std::shared_ptr<toml_base> parse_value(std::string::iterator& it,
-                                           std::string::iterator& end)
+    std::shared_ptr<base> parse_value(std::string::iterator& it,
+                                      std::string::iterator& end)
     {
         parse_type type = determine_value_type(it, end);
         switch (type)
@@ -920,28 +915,28 @@ class parser
         }
     }
 
-    std::shared_ptr<toml_value<std::string>>
+    std::shared_ptr<value<std::string>>
         parse_string(std::string::iterator& it,
                      const std::string::iterator& end)
     {
         ++it;
-        std::string value;
+        std::string val;
         while (it != end)
         {
             // handle escaped characters
             if (*it == '\\')
             {
-                value += parse_escape_code(it, end);
+                val += parse_escape_code(it, end);
             }
             else if (*it == '"')
             {
                 ++it;
                 consume_whitespace(it, end);
-                return std::make_shared<toml_value<std::string>>(value);
+                return std::make_shared<value<std::string>>(val);
             }
             else
             {
-                value += *it++;
+                val += *it++;
             }
         }
         throw_parse_exception("Unterminated string literal");
@@ -994,8 +989,8 @@ class parser
         return value;
     }
 
-    std::shared_ptr<toml_base> parse_number(std::string::iterator& it,
-                                            const std::string::iterator& end)
+    std::shared_ptr<base> parse_number(std::string::iterator& it,
+                                       const std::string::iterator& end)
     {
         // determine if we are an integer or a float
         auto check_it = it;
@@ -1018,45 +1013,46 @@ class parser
         }
     }
 
-    std::shared_ptr<toml_value<int64_t>>
-        parse_int(std::string::iterator& it, const std::string::iterator& end)
+    std::shared_ptr<value<int64_t>> parse_int(std::string::iterator& it,
+                                              const std::string::iterator& end)
     {
         std::string v{it, end};
         it = end;
-        return std::make_shared<toml_value<int64_t>>(std::stoll(v));
+        return std::make_shared<value<int64_t>>(std::stoll(v));
     }
 
-    std::shared_ptr<toml_value<double>>
-        parse_float(std::string::iterator& it, const std::string::iterator& end)
+    std::shared_ptr<value<double>> parse_float(std::string::iterator& it,
+                                               const std::string::iterator& end)
     {
         std::string v{it, end};
         it = end;
-        return std::make_shared<toml_value<double>>(std::stod(v));
+        return std::make_shared<value<double>>(std::stod(v));
     }
 
-    std::shared_ptr<toml_value<bool>>
-        parse_bool(std::string::iterator& it, const std::string::iterator& end)
+    std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
+                                            const std::string::iterator& end)
     {
         auto boolend = std::find_if(it, end, [](char c)
-        { return c == ' ' || c == '\t' || c == '#'; });
+                                    {
+            return c == ' ' || c == '\t' || c == '#';
+        });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
-            return std::make_shared<toml_value<bool>>(true);
+            return std::make_shared<value<bool>>(true);
         else if (v == "false")
-            return std::make_shared<toml_value<bool>>(false);
+            return std::make_shared<value<bool>>(false);
         else
-            throw_parse_exception(
-                "Attempted to parse invalid boolean value");
+            throw_parse_exception("Attempted to parse invalid boolean value");
     }
 
-    std::shared_ptr<toml_value<std::tm>>
-        parse_date(std::string::iterator& it, const std::string::iterator& end)
+    std::shared_ptr<value<std::tm>> parse_date(std::string::iterator& it,
+                                               const std::string::iterator& end)
     {
         auto date_end = std::find_if(it, end, [this](char c)
-        {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' &&
-                   c != '-';
+                                     {
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':'
+                   && c != '-';
         });
         std::string to_match{it, date_end};
         it = date_end;
@@ -1097,11 +1093,11 @@ class parser
         date.tm_sec = sec;
 #endif
 
-        return std::make_shared<toml_value<std::tm>>(date);
+        return std::make_shared<value<std::tm>>(date);
     }
 
-    std::shared_ptr<toml_base> parse_array(std::string::iterator& it,
-                                           std::string::iterator& end)
+    std::shared_ptr<base> parse_array(std::string::iterator& it,
+                                      std::string::iterator& end)
     {
         // this gets ugly because of the "homogeneity" restriction:
         // arrays can either be of only one type, or contain arrays
@@ -1118,11 +1114,13 @@ class parser
         if (*it == ']')
         {
             ++it;
-            return std::make_shared<toml_array>();
+            return std::make_shared<array>();
         }
 
         auto val_end = std::find_if(it, end, [](char c)
-        { return c == ',' || c == ']' || c == '#'; });
+                                    {
+            return c == ',' || c == ']' || c == '#';
+        });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1142,15 +1140,15 @@ class parser
     }
 
     template <class Value>
-    std::shared_ptr<toml_array> parse_value_array(std::string::iterator& it,
-                                                  std::string::iterator& end)
+    std::shared_ptr<array> parse_value_array(std::string::iterator& it,
+                                             std::string::iterator& end)
     {
-        auto arr = std::make_shared<toml_array>();
+        auto arr = std::make_shared<array>();
         while (it != end && *it != ']')
         {
             auto value = parse_value(it, end);
             if (auto v = value->as<Value>())
-                arr->array().push_back(value);
+                arr->get().push_back(value);
             else
                 throw_parse_exception("Arrays must be heterogeneous");
             skip_whitespace_and_comments(it, end);
@@ -1164,13 +1162,13 @@ class parser
         return arr;
     }
 
-    std::shared_ptr<toml_array> parse_nested_array(std::string::iterator& it,
-                                                   std::string::iterator& end)
+    std::shared_ptr<array> parse_nested_array(std::string::iterator& it,
+                                              std::string::iterator& end)
     {
-        auto arr = std::make_shared<toml_array>();
+        auto arr = std::make_shared<array>();
         while (it != end && *it != ']')
         {
-            arr->array().push_back(parse_array(it, end));
+            arr->get().push_back(parse_array(it, end));
             skip_whitespace_and_comments(it, end);
             if (*it != ',')
                 break;
@@ -1215,9 +1213,9 @@ class parser
                         const std::string::iterator& end)
     {
         if (it != end && *it != '#')
-            throw_parse_exception("Unidentified trailing character " +
-                                       std::string{*it} +
-                                       "---did you forget a '#'?");
+            throw_parse_exception("Unidentified trailing character "
+                                  + std::string{*it}
+                                  + "---did you forget a '#'?");
     }
 
     bool is_number(char c)
@@ -1229,9 +1227,9 @@ class parser
                  const std::string::iterator& end)
     {
         auto date_end = std::find_if(it, end, [this](char c)
-        {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' &&
-                   c != '-';
+                                     {
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':'
+                   && c != '-';
         });
         std::string to_match{it, date_end};
 #if CPPTOML_HAS_STD_REGEX
@@ -1244,31 +1242,30 @@ class parser
         int hour;
         int min;
         int sec;
-        return to_match.length() == 20 &&
-               to_match[4] == '-' && to_match[7] == '-' &&
-               to_match[10] == 'T' && to_match[13] == ':' &&
-               to_match[16] == ':' && to_match[19] == 'Z' &&
-               std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year, &month, &day,
-                           &hour, &min, &sec) == 6;
+        return to_match.length() == 20 && to_match[4] == '-'
+               && to_match[7] == '-' && to_match[10] == 'T'
+               && to_match[13] == ':' && to_match[16] == ':'
+               && to_match[19] == 'Z'
+               && std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year,
+                              &month, &day, &hour, &min, &sec) == 6;
 #endif
     }
 
     std::istream& input_;
     std::string line_;
     std::size_t line_number_ = 0;
-    std::unordered_set<std::string> groups_;
+    std::unordered_set<std::string> tables_;
 };
 
 /**
- * Utility function to parse a file as a TOML file. Returns the root group.
- * Throws a toml_parse_exception if the file cannot be opened.
+ * Utility function to parse a file as a TOML file. Returns the root table.
+ * Throws a parse_exception if the file cannot be opened.
  */
-inline toml_group parse_file(const std::string& filename)
+inline table parse_file(const std::string& filename)
 {
     std::ifstream file{filename};
     if (!file.is_open())
-        throw toml_parse_exception{filename +
-                                   " could not be opened for parsing"};
+        throw parse_exception{filename + " could not be opened for parsing"};
     parser p{file};
     return p.parse();
 }

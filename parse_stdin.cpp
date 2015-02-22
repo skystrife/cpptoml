@@ -19,29 +19,29 @@ std::string escape_string(const std::string& str)
 }
 
 void print_value(std::ostream& o,
-                 const std::shared_ptr<cpptoml::toml_base>& base)
+                 const std::shared_ptr<cpptoml::base>& base)
 {
     if (auto v = base->as<std::string>())
     {
-        o << "{\"type\":\"string\",\"value\":\"" << escape_string(v->value())
+        o << "{\"type\":\"string\",\"value\":\"" << escape_string(v->get())
           << "\"}";
     }
     else if (auto v = base->as<int64_t>())
     {
-        o << "{\"type\":\"integer\",\"value\":\"" << v->value() << "\"}";
+        o << "{\"type\":\"integer\",\"value\":\"" << v->get() << "\"}";
     }
     else if (auto v = base->as<double>())
     {
-        o << "{\"type\":\"float\",\"value\":\"" << v->value() << "\"}";
+        o << "{\"type\":\"float\",\"value\":\"" << v->get() << "\"}";
     }
     else if (auto v = base->as<std::tm>())
     {
         o << "{\"type\":\"datetime\",\"value\":\"";
 #if CPPTOML_HAS_STD_PUT_TIME
-        o << std::put_time(&v->value(), "%Y-%m-%dT%H:%M:%SZ") << "\"}";
+        o << std::put_time(&v->get(), "%Y-%m-%dT%H:%M:%SZ") << "\"}";
 #else
         std::array<char, 100> buf;
-        if (std::strftime(&buf[0], 100, "%Y-%m-%dT%H:%M:%SZ", &v->value()))
+        if (std::strftime(&buf[0], 100, "%Y-%m-%dT%H:%M:%SZ", &v->get()))
             o << &buf[0] << "\"}";
 #endif
     }
@@ -53,24 +53,24 @@ void print_value(std::ostream& o,
     }
 }
 
-void print_array(std::ostream& o, cpptoml::toml_array& arr)
+void print_array(std::ostream& o, cpptoml::array& arr)
 {
     o << "{\"type\":\"array\",\"value\":[";
-    auto it = arr.array().begin();
-    while (it != arr.array().end())
+    auto it = arr.get().begin();
+    while (it != arr.get().end())
     {
         if ((*it)->is_array())
             print_array(o, *(*it)->as_array());
         else
             print_value(o, *it);
 
-        if (++it != arr.array().end())
+        if (++it != arr.get().end())
             o << ", ";
     }
     o << "]}";
 }
 
-void print_group(std::ostream& o, cpptoml::toml_group& g)
+void print_table(std::ostream& o, cpptoml::table& g)
 {
     o << "{";
     auto it = g.begin();
@@ -81,18 +81,18 @@ void print_group(std::ostream& o, cpptoml::toml_group& g)
         {
             print_array(o, *it->second->as_array());
         }
-        else if (it->second->is_group())
+        else if (it->second->is_table())
         {
-            print_group(o, *g.get_group(it->first));
+            print_table(o, *g.get_table(it->first));
         }
-        else if (it->second->is_group_array())
+        else if (it->second->is_table_array())
         {
             o << "[";
-            auto arr = g.get_group_array(it->first)->array();
+            auto arr = g.get_table_array(it->first)->get();
             auto ait = arr.begin();
             while (ait != arr.end())
             {
-                print_group(o, **ait);
+                print_table(o, **ait);
                 if (++ait != arr.end())
                     o << ", ";
             }
@@ -114,8 +114,8 @@ int main()
     cpptoml::parser p{std::cin};
     try
     {
-        cpptoml::toml_group g = p.parse();
-        print_group(std::cout, g);
+        cpptoml::table g = p.parse();
+        print_table(std::cout, g);
         std::cout << std::endl;
     }
     catch (...)

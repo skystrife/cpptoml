@@ -13,10 +13,10 @@ int main(int argc, char** argv)
 
     try
     {
-        cpptoml::toml_group g = cpptoml::parse_file(argv[1]);
+        cpptoml::table g = cpptoml::parse_file(argv[1]);
         std::cout << g << std::endl;
     }
-    catch (const cpptoml::toml_parse_exception& e)
+    catch (const cpptoml::parse_exception& e)
     {
         std::cerr << "Failed to parse " << argv[1] << ": " << e.what() << std::endl;
         return 1;
