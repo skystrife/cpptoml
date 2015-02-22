@@ -767,7 +767,17 @@ class parser
 
         std::string table_name{it, kg_end};
         if (tables_.find(table_name) != tables_.end())
-            throw_parse_exception("Duplicate keytable");
+            throw_parse_exception("Duplicate table");
+
+        if (std::find_if(table_name.begin(), table_name.end(), [](char c)
+                         {
+                return c == ' ' || c == '\t';
+            }) != table_name.end())
+        {
+            throw parse_exception("Table name " + table_name
+                                  + " cannot have whitespace");
+        }
+
         tables_.insert({it, kg_end});
         while (it != kg_end)
         {
@@ -898,8 +908,20 @@ class parser
         consume_backwards_whitespace(key_end, it);
         ++key_end;
         std::string key{it, key_end};
+
         if (std::find(it, key_end, '#') != key_end)
+        {
             throw_parse_exception("Key " + key + " cannot contain #");
+        }
+
+        if (std::find_if(it, key_end, [](char c)
+                         {
+                return c == ' ' || c == '\t';
+            }) != key_end)
+        {
+            throw_parse_exception("Key " + key + " cannot contain whitespace");
+        }
+
         it = eq;
         consume_whitespace(it, end);
         return key;
