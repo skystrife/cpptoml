@@ -402,6 +402,11 @@ class table : public base
         return true;
     }
 
+    bool empty() const
+    {
+        return map_.empty();
+    }
+
     /**
      * Determines if this key table contains the given key.
      */
@@ -757,38 +762,24 @@ class parser
                             const std::string::iterator& end,
                             table*& curr_table)
     {
-        auto ob = std::find(it, end, '[');
-        if (ob != end)
-            throw_parse_exception("Cannot have [ in table name");
+        if (it == end || *it == ']')
+            throw_parse_exception("Table name cannot be empty");
 
-        auto kg_end = std::find(it, end, ']');
-        if (it == kg_end)
-            throw_parse_exception("Empty table");
-
-        std::string table_name{it, kg_end};
-        if (tables_.find(table_name) != tables_.end())
-            throw_parse_exception("Duplicate table");
-
-        if (std::find_if(table_name.begin(), table_name.end(), [](char c)
-                         {
-                return c == ' ' || c == '\t';
-            }) != table_name.end())
+        std::string full_table_name;
+        bool inserted = false;
+        while (it != end && *it != ']')
         {
-            throw parse_exception("Table name " + table_name
-                                  + " cannot have whitespace");
-        }
+            auto part = parse_key(it, end, [](char c)
+                                  {
+                return c == '.' || c == ']';
+            });
 
-        tables_.insert({it, kg_end});
-        while (it != kg_end)
-        {
-            auto dot = std::find(it, kg_end, '.');
-            // get the key part
-            std::string part{it, dot};
             if (part.empty())
-                throw_parse_exception("Empty keytable part");
-            it = dot;
-            if (it != kg_end)
-                ++it;
+                throw_parse_exception("Empty component of table name");
+
+            if (!full_table_name.empty())
+                full_table_name += ".";
+            full_table_name += part;
 
             if (curr_table->contains(part))
             {
@@ -801,14 +792,42 @@ class parser
                                      .back()
                                      .get();
                 else
-                    throw_parse_exception("Keytable already exists as a value");
+                    throw_parse_exception("Key " + full_table_name
+                                          + "already exists as a value");
             }
             else
             {
+                inserted = true;
                 curr_table->insert(part, std::make_shared<table>());
                 curr_table = static_cast<table*>(curr_table->get(part).get());
             }
+            consume_whitespace(it, end);
+            if (it != end && *it == '.')
+                ++it;
+            consume_whitespace(it, end);
         }
+
+        // table already existed
+        if (!inserted)
+        {
+            auto is_value = [](const std::pair<const std::string&,
+                                               const std::shared_ptr<base>&>& p)
+            {
+                return p.second->is_value();
+            };
+
+            // if there are any values, we can't add values to this table
+            // since it has already been defined. If there aren't any
+            // values, then it was implicitly created by something like
+            // [a.b]
+            if (curr_table->empty() || std::any_of(curr_table->begin(),
+                                                   curr_table->end(), is_value))
+            {
+                throw_parse_exception("Redefinition of table "
+                                      + full_table_name);
+            }
+        }
+
         ++it;
         consume_whitespace(it, end);
         eol_or_comment(it, end);
@@ -818,37 +837,45 @@ class parser
                            const std::string::iterator& end, table*& curr_table)
     {
         ++it;
-        auto ob = std::find(it, end, '[');
-        if (ob != end)
-            throw_parse_exception("Cannot have [ in keytable name");
-        auto kg_end = std::find(it, end, ']');
-        if (kg_end == end)
-            throw_parse_exception("Unterminated keytable array");
-        if (it == kg_end)
-            throw_parse_exception("Empty keytable");
-        auto kga_end = kg_end;
-        if (*++kga_end != ']')
-            throw_parse_exception("Invalid keytable array specifier");
-        while (it != kg_end)
+        if (it == end || *it == ']')
+            throw_parse_exception("Table array name cannot be empty");
+
+        std::string full_ta_name;
+        while (it != end && *it != ']')
         {
-            auto dot = std::find(it, kg_end, '.');
-            std::string part{it, dot};
+            auto part = parse_key(it, end, [](char c)
+                                  {
+                return c == '.' || c == ']';
+            });
+
             if (part.empty())
-                throw_parse_exception("Empty keytable part");
-            it = dot;
-            if (it != kg_end)
+                throw_parse_exception("Empty component of table array name");
+
+            if (!full_ta_name.empty())
+                full_ta_name += ".";
+            full_ta_name += part;
+
+            consume_whitespace(it, end);
+            if (it != end && *it == '.')
                 ++it;
+            consume_whitespace(it, end);
+
             if (curr_table->contains(part))
             {
                 auto b = curr_table->get(part);
-                if (it == kg_end)
+
+                // if this is the end of the keygroup, add an element to
+                // the table array that we just looked up
+                if (it != end && *it == ']')
                 {
                     if (!b->is_table_array())
-                        throw_parse_exception("Expected keytable array");
-                    auto v = std::static_pointer_cast<table_array>(b);
+                        throw_parse_exception("Key " + full_ta_name
+                                              + " is not a table array");
+                    auto v = b->as_table_array();
                     v->get().push_back(std::make_shared<table>());
                     curr_table = v->get().back().get();
                 }
+                // otherwise, just keep traversing down the key name
                 else
                 {
                     if (b->is_table())
@@ -859,13 +886,13 @@ class parser
                                          .back()
                                          .get();
                     else
-                        throw_parse_exception(
-                            "Keytable already exists as a value");
+                        throw_parse_exception("Key " + full_ta_name
+                                              + " already exists as a value");
                 }
             }
             else
             {
-                if (it == kg_end)
+                if (it != end && *it == ']')
                 {
                     curr_table->insert(part, std::make_shared<table_array>());
                     auto arr = std::static_pointer_cast<table_array>(
@@ -881,12 +908,26 @@ class parser
                 }
             }
         }
+
+        // consume the last "]]"
+        if (it == end)
+            throw_parse_exception("Unterminated table array name");
+        ++it;
+        if (it == end)
+            throw_parse_exception("Unterminated table array name");
+        ++it;
+
+        consume_whitespace(it, end);
+        eol_or_comment(it, end);
     }
 
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
                          table*& curr_table)
     {
-        std::string key = parse_key(it, end);
+        std::string key = parse_key(it, end, [](char c)
+                                    {
+            return c == '=';
+        });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -898,8 +939,9 @@ class parser
         eol_or_comment(it, end);
     }
 
+    template <class Function>
     std::string parse_key(std::string::iterator& it,
-                          const std::string::iterator& end)
+                          const std::string::iterator& end, Function&& fun)
     {
         consume_whitespace(it, end);
         if (*it == '"')
@@ -908,15 +950,15 @@ class parser
         }
         else
         {
-            return parse_bare_key(it, end);
+            auto bke = std::find_if(it, end, std::forward<Function>(fun));
+            return parse_bare_key(it, bke);
         }
     }
 
     std::string parse_bare_key(std::string::iterator& it,
-                                const std::string::iterator& end)
+                               const std::string::iterator& end)
     {
-        auto eq = std::find(it, end, '=');
-        auto key_end = eq;
+        auto key_end = end;
         --key_end;
         consume_backwards_whitespace(key_end, it);
         ++key_end;
@@ -924,7 +966,7 @@ class parser
 
         if (std::find(it, key_end, '#') != key_end)
         {
-            throw_parse_exception("Key " + key + " cannot contain #");
+            throw_parse_exception("Bare key " + key + " cannot contain #");
         }
 
         if (std::find_if(it, key_end, [](char c)
@@ -932,11 +974,20 @@ class parser
                 return c == ' ' || c == '\t';
             }) != key_end)
         {
-            throw_parse_exception("Key " + key + " cannot contain whitespace");
+            throw_parse_exception("Bare key " + key
+                                  + " cannot contain whitespace");
         }
 
-        it = eq;
-        consume_whitespace(it, end);
+        if (std::find_if(it, key_end, [](char c)
+                         {
+                return c == '[' || c == ']';
+            }) != key_end)
+        {
+            throw_parse_exception("Bare key " + key
+                                  + " cannot contain '[' or ']'");
+        }
+
+        it = end;
         return key;
     }
 
@@ -1033,7 +1084,8 @@ class parser
         return std::make_shared<value<std::string>>(string_literal(it, end));
     }
 
-    std::string string_literal(std::string::iterator& it, const std::string::iterator& end)
+    std::string string_literal(std::string::iterator& it,
+                               const std::string::iterator& end)
     {
         ++it;
         std::string val;

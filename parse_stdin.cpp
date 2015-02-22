@@ -118,8 +118,9 @@ int main()
         print_table(std::cout, g);
         std::cout << std::endl;
     }
-    catch (...)
+    catch (const cpptoml::parse_exception& ex)
     {
+        std::cerr << "Parsing failed: " << ex.what() << std::endl;
         return 1;
     }
     return 0;
