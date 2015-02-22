@@ -746,7 +746,7 @@ class parser
         // remove the beginning keytable marker
         ++it;
         if (it == end)
-            throw_parse_exception("Unexpected end of keytable");
+            throw_parse_exception("Unexpected end of table");
         if (*it == '[')
             parse_table_array(it, end, curr_table);
         else
@@ -759,10 +759,12 @@ class parser
     {
         auto ob = std::find(it, end, '[');
         if (ob != end)
-            throw_parse_exception("Cannot have [ in keytable name");
+            throw_parse_exception("Cannot have [ in table name");
+
         auto kg_end = std::find(it, end, ']');
         if (it == kg_end)
-            throw_parse_exception("Empty keytable");
+            throw_parse_exception("Empty table");
+
         std::string table_name{it, kg_end};
         if (tables_.find(table_name) != tables_.end())
             throw_parse_exception("Duplicate keytable");
