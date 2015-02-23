@@ -12,6 +12,9 @@ Alternatives:
 - [libtoml][libtoml] is a C implementation of a TOML parser, which can be
   linked to from your C++ programs easily. It supports only v0.2.0 also.
 
+## Build Status
+[![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
+
 ## Test Results
 The following two tests are the only failing tests from [the toml-test
 suite][toml-test].
