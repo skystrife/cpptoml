@@ -1284,7 +1284,16 @@ class parser
         {
             auto beg = check_it;
             while (check_it != end && is_number(*check_it))
+            {
                 ++check_it;
+                if (check_it != end && *check_it == '_')
+                {
+                    ++check_it;
+                    if (check_it == end || !is_number(*check_it))
+                        throw_parse_exception("Malformed number");
+                }
+            }
+
             if (check_it == beg)
                 throw_parse_exception("Malformed number");
         };
@@ -1324,16 +1333,44 @@ class parser
                                               const std::string::iterator& end)
     {
         std::string v{it, end};
+        v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
-        return std::make_shared<value<int64_t>>(std::stoll(v));
+        try
+        {
+            return std::make_shared<value<int64_t>>(std::stoll(v));
+        }
+        catch (const std::invalid_argument& ex)
+        {
+            throw_parse_exception("Malformed number (invalid argument: "
+                                  + std::string{ex.what()} + ")");
+        }
+        catch (const std::out_of_range& ex)
+        {
+            throw_parse_exception("Malformed number (out of range: "
+                                  + std::string{ex.what()} + ")");
+        }
     }
 
     std::shared_ptr<value<double>> parse_float(std::string::iterator& it,
                                                const std::string::iterator& end)
     {
         std::string v{it, end};
+        v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
-        return std::make_shared<value<double>>(std::stod(v));
+        try
+        {
+            return std::make_shared<value<double>>(std::stold(v));
+        }
+        catch (const std::invalid_argument& ex)
+        {
+            throw_parse_exception("Malformed number (invalid argument: "
+                                  + std::string{ex.what()} + ")");
+        }
+        catch (const std::out_of_range& ex)
+        {
+            throw_parse_exception("Malformed number (out of range: "
+                                  + std::string{ex.what()} + ")");
+        }
     }
 
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
