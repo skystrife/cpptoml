@@ -61,15 +61,15 @@ class option
 
 struct datetime
 {
-    int64_t year = 0;
-    int64_t month = 0;
-    int64_t day = 0;
-    int64_t hour = 0;
-    int64_t minute = 0;
-    int64_t second = 0;
-    int64_t microsecond = 0;
-    int64_t hour_offset = 0;
-    int64_t minute_offset = 0;
+    int year = 0;
+    int month = 0;
+    int day = 0;
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+    int microsecond = 0;
+    int hour_offset = 0;
+    int minute_offset = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
@@ -1446,7 +1446,7 @@ class parser
 
         auto eat_digits = [&](int len)
         {
-            int64_t val = 0;
+            int val = 0;
             for (int i = 0; i < len; ++i)
             {
                 if (!is_number(*it) || it == date_end)
@@ -1480,8 +1480,8 @@ class parser
         if (it == date_end)
             throw_parse_exception("Malformed date");
 
-        int64_t hoff = 0;
-        int64_t moff = 0;
+        int hoff = 0;
+        int moff = 0;
         if (*it == '+' || *it == '-')
         {
             auto plus = *it == '+';
