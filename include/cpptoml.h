@@ -1541,9 +1541,11 @@ class parser
             case parse_type::DATE:
                 return parse_value_array<datetime>(it, end);
             case parse_type::ARRAY:
-                return parse_nested_array(it, end);
+                return parse_object_array<array>(&parser::parse_array, '[', it,
+                                                 end);
             case parse_type::INLINE_TABLE:
-                return parse_inline_table_array(it, end);
+                return parse_object_array<table_array>(
+                    &parser::parse_inline_table, '{', it, end);
             default:
                 throw_parse_exception("Unable to parse array");
         }
@@ -1572,37 +1574,19 @@ class parser
         return arr;
     }
 
-    std::shared_ptr<array> parse_nested_array(std::string::iterator& it,
-                                              std::string::iterator& end)
+    template <class Object, class Function>
+    std::shared_ptr<Object> parse_object_array(Function&& fun, char delim,
+                                               std::string::iterator& it,
+                                               std::string::iterator& end)
     {
-        auto arr = std::make_shared<array>();
-        while (it != end && *it != ']')
-        {
-            arr->get().push_back(parse_array(it, end));
-            skip_whitespace_and_comments(it, end);
-            if (*it != ',')
-                break;
-            ++it;
-            skip_whitespace_and_comments(it, end);
-        }
-        if (it != end)
-            ++it;
-        return arr;
-    }
-
-    std::shared_ptr<table_array>
-        parse_inline_table_array(std::string::iterator& it,
-                                 std::string::iterator& end)
-    {
-        auto arr = std::make_shared<table_array>();
+        auto arr = std::make_shared<Object>();
 
         while (it != end && *it != ']')
         {
-            if (*it != '{')
-                throw_parse_exception(
-                    "Unexpected character in inline table array");
+            if (*it != delim)
+                throw_parse_exception("Unexpected character in array");
 
-            arr->get().push_back(parse_inline_table(it, end));
+            arr->get().push_back(((*this).*fun)(it, end));
             skip_whitespace_and_comments(it, end);
 
             if (*it != ',')
