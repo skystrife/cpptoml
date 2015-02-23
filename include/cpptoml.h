@@ -21,6 +21,7 @@
 #if CPPTOML_HAS_STD_REGEX
 #include <regex>
 #endif
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -1082,11 +1083,112 @@ class parser
         }
     }
 
-    std::shared_ptr<value<std::string>>
-        parse_string(std::string::iterator& it,
-                     const std::string::iterator& end)
+    std::shared_ptr<value<std::string>> parse_string(std::string::iterator& it,
+                                                     std::string::iterator& end)
     {
+        // end is non-const here because we have to be able to potentially
+        // parse multiple lines in a string, not just one
+        auto check_it = it;
+        ++check_it;
+        if (check_it != end && *check_it == '"')
+        {
+            ++check_it;
+            if (check_it != end && *check_it == '"')
+            {
+                it = ++check_it;
+                return parse_multiline_string(it, end);
+            }
+        }
         return std::make_shared<value<std::string>>(string_literal(it, end));
+    }
+
+    std::shared_ptr<value<std::string>>
+        parse_multiline_string(std::string::iterator& it,
+                               std::string::iterator& end)
+    {
+        std::stringstream ss;
+
+        auto is_ws = [](char c)
+        {
+            return c == ' ' || c == '\t';
+        };
+
+        bool consuming = false;
+        std::shared_ptr<value<std::string>> ret;
+
+        auto handle_line =
+            [&](std::string::iterator& it, std::string::iterator& end)
+        {
+            if (consuming)
+            {
+                it = std::find_if_not(it, end, is_ws);
+
+                // whole line is whitespace
+                if (it == end)
+                    return;
+            }
+
+            consuming = false;
+
+            while (it != end)
+            {
+                auto check = it;
+                // handle escaped characters
+                if (*it == '\\')
+                {
+                    // check if this is an actual escape sequence or a
+                    // whitespace escaping backslash
+                    ++check;
+                    if (check == end)
+                    {
+                        consuming = true;
+                        break;
+                    }
+
+                    ss << parse_escape_code(it, end);
+                    continue;
+                }
+
+                // if we can end the string
+                if (std::distance(it, end) >= 3)
+                {
+                    auto check = it;
+                    // check for """
+                    if (*check++ == '"' && *check++ == '"' && *check++ == '"')
+                    {
+                        it = check;
+                        ret = std::make_shared<value<std::string>>(ss.str());
+                        break;
+                    }
+                }
+
+                ss << *it++;
+            }
+        };
+
+        // handle the remainder of the current line
+        handle_line(it, end);
+        if (ret)
+            return ret;
+
+        // start eating lines
+        while (std::getline(input_, line_))
+        {
+            ++line_number_;
+
+            it = line_.begin();
+            end = line_.end();
+
+            handle_line(it, end);
+
+            if (ret)
+                return ret;
+
+            if (!consuming)
+                ss << std::endl;
+        }
+
+        throw_parse_exception("Unterminated multi-line basic string");
     }
 
     std::string string_literal(std::string::iterator& it,

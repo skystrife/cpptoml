@@ -12,6 +12,8 @@ std::string escape_string(const std::string& str)
             res += "\\\\";
         else if (*it == '"')
             res += "\\\"";
+        else if (*it == '\n')
+            res += "\\n";
         else
             res += *it;
     }
