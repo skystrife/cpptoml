@@ -548,7 +548,7 @@ class table : public base
         try
         {
             if (auto v = get(key)->as<T>())
-                return {v->value()};
+                return {v->get()};
             else
                 return {};
         }
@@ -569,7 +569,7 @@ class table : public base
         try
         {
             if (auto v = get_qualified(key)->as<T>())
-                return {v->value()};
+                return {v->get()};
             else
                 return {};
         }
