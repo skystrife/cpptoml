@@ -60,3 +60,4 @@ example usage.
 [toml-test]: https://github.com/BurntSushi/toml-test
 [ctoml]: https://github.com/evilncrazy/ctoml
 [libtoml]: https://github.com/ajwans/libtoml
+[tinytoml]: https://github.com/mayah/tinytoml
