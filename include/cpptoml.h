@@ -1047,7 +1047,7 @@ class parser
         {
             return parse_type::DATE;
         }
-        else if (is_number(*it) || *it == '-')
+        else if (is_number(*it) || *it == '-' || *it == '+')
         {
             return determine_number_type(it, end);
         }
@@ -1067,7 +1067,7 @@ class parser
     {
         // determine if we are an integer or a float
         auto check_it = it;
-        if (*check_it == '-')
+        if (*check_it == '-' || *check_it == '+')
             ++check_it;
         while (check_it != end && is_number(*check_it))
             ++check_it;
@@ -1271,17 +1271,47 @@ class parser
     {
         // determine if we are an integer or a float
         auto check_it = it;
-        if (*check_it == '-')
-            ++check_it;
-        while (check_it != end && is_number(*check_it))
-            ++check_it;
-        if (check_it != end && *check_it == '.')
+
+        auto eat_sign = [&]()
         {
+            if (*check_it == '-' || *check_it == '+')
+                ++check_it;
+        };
+
+        eat_sign();
+
+        auto eat_numbers = [&]()
+        {
+            auto beg = check_it;
+            while (check_it != end && is_number(*check_it))
+                ++check_it;
+            if (check_it == beg)
+                throw_parse_exception("Malformed number");
+        };
+
+        eat_numbers();
+
+        if (check_it != end
+            && (*check_it == '.' || *check_it == 'e' || *check_it == 'E'))
+        {
+            bool is_exp = *check_it == 'e' || *check_it == 'E';
+
             ++check_it;
             if (check_it == end)
                 throw_parse_exception("Floats must have trailing digits");
-            while (check_it != end && is_number(*check_it))
+
+            if (is_exp)
+                eat_sign();
+
+            eat_numbers();
+
+            if (!is_exp && (*check_it == 'e' || *check_it == 'E'))
+            {
                 ++check_it;
+                eat_sign();
+                eat_numbers();
+            }
+
             return parse_float(it, check_it);
         }
         else
