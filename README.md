@@ -4,7 +4,8 @@ A header-only library for parsing [TOML][toml] configuration files.
 Targets: [TOML v0.4.0][currver]
 
 It is reasonably conforming, with the exception of unicode escape
-characters in strings.
+characters in strings. This includes support for the new DateTime format,
+inline tables, multi-line basic and raw strings, and digit separators.
 
 Alternatives:
 - [ctoml][ctoml] and [tinytoml][tinytoml] are both C++11 implementations of
