@@ -8,10 +8,10 @@
 #define _CPPTOML_H_
 
 #include <algorithm>
-#include <stdexcept>
 #if !CPPTOML_HAS_STD_PUT_TIME
 #include <array>
 #endif
+#include <cassert>
 #include <cstdint>
 #include <ctime>
 #include <cstring>
@@ -22,6 +22,7 @@
 #include <regex>
 #endif
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -1000,7 +1001,7 @@ class parser
     std::string parse_quoted_key(std::string::iterator& it,
                                  const std::string::iterator& end)
     {
-        return string_literal(it, end);
+        return string_literal(it, end, '"');
     }
 
     enum class parse_type
@@ -1038,7 +1039,7 @@ class parser
     parse_type determine_value_type(const std::string::iterator& it,
                                     const std::string::iterator& end)
     {
-        if (*it == '"')
+        if (*it == '"' || *it == '\'')
         {
             return parse_type::STRING;
         }
@@ -1086,25 +1087,29 @@ class parser
     std::shared_ptr<value<std::string>> parse_string(std::string::iterator& it,
                                                      std::string::iterator& end)
     {
+        auto delim = *it;
+        assert(delim == '"' || delim == '\'');
+
         // end is non-const here because we have to be able to potentially
         // parse multiple lines in a string, not just one
         auto check_it = it;
         ++check_it;
-        if (check_it != end && *check_it == '"')
+        if (check_it != end && *check_it == delim)
         {
             ++check_it;
-            if (check_it != end && *check_it == '"')
+            if (check_it != end && *check_it == delim)
             {
                 it = ++check_it;
-                return parse_multiline_string(it, end);
+                return parse_multiline_string(it, end, delim);
             }
         }
-        return std::make_shared<value<std::string>>(string_literal(it, end));
+        return std::make_shared<value<std::string>>(
+            string_literal(it, end, delim));
     }
 
     std::shared_ptr<value<std::string>>
         parse_multiline_string(std::string::iterator& it,
-                               std::string::iterator& end)
+                               std::string::iterator& end, char delim)
     {
         std::stringstream ss;
 
@@ -1134,7 +1139,7 @@ class parser
             {
                 auto check = it;
                 // handle escaped characters
-                if (*it == '\\')
+                if (delim == '"' && *it == '\\')
                 {
                     // check if this is an actual escape sequence or a
                     // whitespace escaping backslash
@@ -1154,7 +1159,8 @@ class parser
                 {
                     auto check = it;
                     // check for """
-                    if (*check++ == '"' && *check++ == '"' && *check++ == '"')
+                    if (*check++ == delim && *check++ == delim
+                        && *check++ == delim)
                     {
                         it = check;
                         ret = std::make_shared<value<std::string>>(ss.str());
@@ -1192,18 +1198,18 @@ class parser
     }
 
     std::string string_literal(std::string::iterator& it,
-                               const std::string::iterator& end)
+                               const std::string::iterator& end, char delim)
     {
         ++it;
         std::string val;
         while (it != end)
         {
             // handle escaped characters
-            if (*it == '\\')
+            if (delim == '"' && *it == '\\')
             {
                 val += parse_escape_code(it, end);
             }
-            else if (*it == '"')
+            else if (*it == delim)
             {
                 ++it;
                 consume_whitespace(it, end);
@@ -1247,10 +1253,6 @@ class parser
         else if (*it == '"')
         {
             value = '"';
-        }
-        else if (*it == '/')
-        {
-            value = '/';
         }
         else if (*it == '\\')
         {
