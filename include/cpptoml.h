@@ -13,7 +13,6 @@
 #endif
 #include <cassert>
 #include <cstdint>
-#include <ctime>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
@@ -59,6 +58,51 @@ class option
     bool empty_;
     T value_;
 };
+
+struct datetime
+{
+    int64_t year = 0;
+    int64_t month = 0;
+    int64_t day = 0;
+    int64_t hour = 0;
+    int64_t minute = 0;
+    int64_t second = 0;
+    int64_t microsecond = 0;
+    int64_t hour_offset = 0;
+    int64_t minute_offset = 0;
+};
+
+inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
+{
+    using std::setw;
+    auto fill = os.fill();
+
+    os.fill('0');
+    os << setw(4) << dt.year << "-" << setw(2) << dt.month << "-" << setw(2)
+       << dt.day << "T" << setw(2) << dt.hour << ":" << setw(2) << dt.minute
+       << ":" << setw(2) << dt.second;
+
+    if (dt.microsecond > 0)
+    {
+        os << "." << setw(6) << dt.microsecond;
+    }
+
+    if (dt.hour_offset != 0 || dt.minute_offset != 0)
+    {
+        if (dt.hour_offset > 0)
+            os << "+";
+        else
+            os << "-";
+        os << setw(2) << std::abs(dt.hour_offset) << ":" << setw(2)
+           << std::abs(dt.minute_offset);
+    }
+    else
+        os << "Z";
+
+    os.fill(fill);
+
+    return os;
+}
 
 template <class T>
 class value;
@@ -153,7 +197,7 @@ struct valid_value
     const static bool value
         = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
           || std::is_same<T, double>::value || std::is_same<T, bool>::value
-          || std::is_same<T, std::tm>::value;
+          || std::is_same<T, datetime>::value;
 };
 
 /**
@@ -168,7 +212,7 @@ class value : public base
     /**
      * Constructs a value from the given data.
      */
-    value(const T& val) : data_{val}
+    value(const T& val) : data_(val)
     {
     }
 
@@ -202,13 +246,6 @@ class value : public base
     T data_;
 };
 
-// I don't think I'll ever comprehend why this is needed...
-template <>
-inline value<std::tm>::value(const std::tm& date)
-{
-    data_ = date;
-}
-
 // specializations for printing nicely
 template <>
 inline void value<bool>::print(std::ostream& stream) const
@@ -217,18 +254,6 @@ inline void value<bool>::print(std::ostream& stream) const
         stream << "true";
     else
         stream << "false";
-}
-
-template <>
-inline void value<std::tm>::print(std::ostream& stream) const
-{
-#if CPPTOML_HAS_STD_PUT_TIME
-    stream << std::put_time(&data_, "%c");
-#else
-    std::array<char, 100> buf;
-    if (std::strftime(&buf[0], 100, "%c", &data_))
-        stream << &buf[0] << " UTC";
-#endif
 }
 
 template <class T>
@@ -732,7 +757,6 @@ class parser
                 parse_key_value(it, end, curr_table);
             }
         }
-        tables_.clear();
         return root;
     }
 
@@ -1390,54 +1414,86 @@ class parser
             throw_parse_exception("Attempted to parse invalid boolean value");
     }
 
-    std::shared_ptr<value<std::tm>> parse_date(std::string::iterator& it,
-                                               const std::string::iterator& end)
+    std::string::iterator find_end_of_date(std::string::iterator it,
+                                           std::string::iterator end)
     {
-        auto date_end = std::find_if(it, end, [this](char c)
-                                     {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':'
-                   && c != '-';
+        return std::find_if(it, end, [this](char c)
+                            {
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
+                   && c != '+' && c != '.';
         });
-        std::string to_match{it, date_end};
-        it = date_end;
+    }
 
-#if CPPTOML_HAS_STD_REGEX
-        std::regex pattern{
-            "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})Z"};
-        std::match_results<std::string::const_iterator> results;
-        std::regex_match(to_match, results, pattern);
+    std::shared_ptr<value<datetime>>
+        parse_date(std::string::iterator& it, const std::string::iterator& end)
+    {
+        auto date_end = find_end_of_date(it, end);
 
-        // populate extracted values
-        std::tm date;
-        std::memset(&date, '\0', sizeof(date));
-        date.tm_year = stoi(results[1]) - 1900;
-        date.tm_mon = stoi(results[2]) - 1;
-        date.tm_mday = stoi(results[3]);
-        date.tm_hour = stoi(results[4]);
-        date.tm_min = stoi(results[5]);
-        date.tm_sec = stoi(results[6]);
-#else
-        int year;
-        int month;
-        int day;
-        int hour;
-        int min;
-        int sec;
-        std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year, &month, &day,
-                    &hour, &min, &sec);
+        auto eat = [&](char c)
+        {
+            if (it == date_end || *it != c)
+                throw_parse_exception("Malformed date");
+            ++it;
+        };
 
-        // populate extracted values
-        std::tm date;
-        std::memset(&date, '\0', sizeof(date));
-        date.tm_year = year - 1900;
-        date.tm_mon = month - 1;
-        date.tm_mday = day;
-        date.tm_hour = hour;
-        date.tm_min = min;
-        date.tm_sec = sec;
-#endif
+        auto eat_digits = [&](int len)
+        {
+            int64_t val = 0;
+            for (int i = 0; i < len; ++i)
+            {
+                if (!is_number(*it) || it == date_end)
+                    throw_parse_exception("Malformed date");
+                val = 10 * val + (*it++ - '0');
+            }
+            return val;
+        };
 
-        return std::make_shared<value<std::tm>>(date);
+        datetime dt;
+
+        dt.year = eat_digits(4);
+        eat('-');
+        dt.month = eat_digits(2);
+        eat('-');
+        dt.day = eat_digits(2);
+        eat('T');
+        dt.hour = eat_digits(2);
+        eat(':');
+        dt.minute = eat_digits(2);
+        eat(':');
+        dt.second = eat_digits(2);
+
+        if (*it == '.')
+        {
+            ++it;
+            while (it != date_end && is_number(*it))
+                dt.microsecond = 10 * dt.microsecond + (*it++ - '0');
+        }
+
+        if (it == date_end)
+            throw_parse_exception("Malformed date");
+
+        int64_t hoff = 0;
+        int64_t moff = 0;
+        if (*it == '+' || *it == '-')
+        {
+            auto plus = *it == '+';
+            ++it;
+
+            hoff = eat_digits(2);
+            dt.hour_offset = (plus) ? hoff : -hoff;
+            eat(':');
+            moff = eat_digits(2);
+            dt.minute_offset = (plus) ? moff : -moff;
+        }
+        else if (*it == 'Z')
+        {
+            ++it;
+        }
+
+        if (it != date_end)
+            throw_parse_exception("Malformed date");
+
+        return std::make_shared<value<datetime>>(dt);
     }
 
     std::shared_ptr<base> parse_array(std::string::iterator& it,
@@ -1475,7 +1531,7 @@ class parser
             case parse_type::FLOAT:
                 return parse_value_array<double>(it, end);
             case parse_type::DATE:
-                return parse_value_array<std::tm>(it, end);
+                return parse_value_array<datetime>(it, end);
             case parse_type::ARRAY:
                 return parse_nested_array(it, end);
             default:
@@ -1570,35 +1626,26 @@ class parser
     bool is_date(const std::string::iterator& it,
                  const std::string::iterator& end)
     {
-        auto date_end = std::find_if(it, end, [this](char c)
-                                     {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':'
-                   && c != '-';
-        });
+        auto date_end = find_end_of_date(it, end);
         std::string to_match{it, date_end};
 #if CPPTOML_HAS_STD_REGEX
-        std::regex pattern{"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"};
-        return std::regex_match(to_match, pattern);
+        return std::regex_match(to_match, date_pattern_);
 #else
-        int year;
-        int month;
-        int day;
-        int hour;
-        int min;
-        int sec;
-        return to_match.length() == 20 && to_match[4] == '-'
+        // this can be approximate; we just need a lookahead
+        return to_match.length() >= 20 && to_match[4] == '-'
                && to_match[7] == '-' && to_match[10] == 'T'
-               && to_match[13] == ':' && to_match[16] == ':'
-               && to_match[19] == 'Z'
-               && std::sscanf(to_match.c_str(), "%d-%d-%dT%d:%d:%dZ", &year,
-                              &month, &day, &hour, &min, &sec) == 6;
+               && to_match[13] == ':' && to_match[16] == ':';
 #endif
     }
 
     std::istream& input_;
     std::string line_;
     std::size_t line_number_ = 0;
-    std::unordered_set<std::string> tables_;
+#if CPPTOML_HAS_STD_REGEX
+    std::regex date_pattern_{
+        "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{"
+        "2})(\\.\\d+)?(Z|(\\+|-)(\\d{2}):(\\d{2}))"};
+#endif
 };
 
 /**

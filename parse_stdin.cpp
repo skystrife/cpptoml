@@ -20,8 +20,7 @@ std::string escape_string(const std::string& str)
     return res;
 }
 
-void print_value(std::ostream& o,
-                 const std::shared_ptr<cpptoml::base>& base)
+void print_value(std::ostream& o, const std::shared_ptr<cpptoml::base>& base)
 {
     if (auto v = base->as<std::string>())
     {
@@ -36,16 +35,9 @@ void print_value(std::ostream& o,
     {
         o << "{\"type\":\"float\",\"value\":\"" << v->get() << "\"}";
     }
-    else if (auto v = base->as<std::tm>())
+    else if (auto v = base->as<cpptoml::datetime>())
     {
-        o << "{\"type\":\"datetime\",\"value\":\"";
-#if CPPTOML_HAS_STD_PUT_TIME
-        o << std::put_time(&v->get(), "%Y-%m-%dT%H:%M:%SZ") << "\"}";
-#else
-        std::array<char, 100> buf;
-        if (std::strftime(&buf[0], 100, "%Y-%m-%dT%H:%M:%SZ", &v->get()))
-            o << &buf[0] << "\"}";
-#endif
+        o << "{\"type\":\"datetime\",\"value\":\"" << v->get() << "\"}";
     }
     else if (auto v = base->as<bool>())
     {
