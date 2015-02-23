@@ -755,6 +755,8 @@ class parser
             else
             {
                 parse_key_value(it, end, curr_table);
+                consume_whitespace(it, end);
+                eol_or_comment(it, end);
             }
         }
         return root;
@@ -953,10 +955,10 @@ class parser
     }
 
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
-                         table*& curr_table)
+                         table* curr_table)
     {
-        std::string key = parse_key(it, end, [](char c)
-                                    {
+        auto key = parse_key(it, end, [](char c)
+                             {
             return c == '=';
         });
         if (curr_table->contains(key))
@@ -967,7 +969,6 @@ class parser
         consume_whitespace(it, end);
         curr_table->insert(key, parse_value(it, end));
         consume_whitespace(it, end);
-        eol_or_comment(it, end);
     }
 
     template <class Function>
@@ -1035,7 +1036,8 @@ class parser
         INT,
         FLOAT,
         BOOL,
-        ARRAY
+        ARRAY,
+        INLINE_TABLE
     };
 
     std::shared_ptr<base> parse_value(std::string::iterator& it,
@@ -1055,6 +1057,8 @@ class parser
                 return parse_bool(it, end);
             case parse_type::ARRAY:
                 return parse_array(it, end);
+            case parse_type::INLINE_TABLE:
+                return parse_inline_table(it, end);
             default:
                 throw_parse_exception("Failed to parse value");
         }
@@ -1082,6 +1086,10 @@ class parser
         else if (*it == '[')
         {
             return parse_type::ARRAY;
+        }
+        else if (*it == '{')
+        {
+            return parse_type::INLINE_TABLE;
         }
         throw_parse_exception("Failed to parse value type");
     }
@@ -1534,6 +1542,8 @@ class parser
                 return parse_value_array<datetime>(it, end);
             case parse_type::ARRAY:
                 return parse_nested_array(it, end);
+            case parse_type::INLINE_TABLE:
+                return parse_inline_table_array(it, end);
             default:
                 throw_parse_exception("Unable to parse array");
         }
@@ -1578,6 +1588,59 @@ class parser
         if (it != end)
             ++it;
         return arr;
+    }
+
+    std::shared_ptr<table_array>
+        parse_inline_table_array(std::string::iterator& it,
+                                 std::string::iterator& end)
+    {
+        auto arr = std::make_shared<table_array>();
+
+        while (it != end && *it != ']')
+        {
+            if (*it != '{')
+                throw_parse_exception(
+                    "Unexpected character in inline table array");
+
+            arr->get().push_back(parse_inline_table(it, end));
+            skip_whitespace_and_comments(it, end);
+
+            if (*it != ',')
+                break;
+
+            ++it;
+            skip_whitespace_and_comments(it, end);
+        }
+
+        if (it == end || *it != ']')
+            throw_parse_exception("Unterminated array");
+
+        ++it;
+        return arr;
+    }
+
+    std::shared_ptr<table> parse_inline_table(std::string::iterator& it,
+                                              std::string::iterator& end)
+    {
+        auto tbl = std::make_shared<table>();
+        do
+        {
+            ++it;
+            if (it == end)
+                throw_parse_exception("Unterminated inline table");
+
+            consume_whitespace(it, end);
+            parse_key_value(it, end, tbl.get());
+            consume_whitespace(it, end);
+        } while (*it == ',');
+
+        if (it == end || *it != '}')
+            throw_parse_exception("Unterminated inline table");
+
+        ++it;
+        consume_whitespace(it, end);
+
+        return tbl;
     }
 
     void skip_whitespace_and_comments(std::string::iterator& start,
