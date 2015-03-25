@@ -23,7 +23,6 @@ install:
   - if [ "`echo $CXX`" == "g++" ]; then sudo apt-get install -qq g++-4.8; fi
   - if [ "`echo $CXX`" == "g++" ]; then sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 50; fi
   # install libc++ if tests are run with clang++
-  - if [ "`echo $CXX`" == "clang++" ]; then cwd=$(pwd); fi
   - if [ "`echo $CXX`" == "clang++" ]; then svn co --quiet http://llvm.org/svn/llvm-project/libcxx/trunk libcxx; fi
   - if [ "`echo $CXX`" == "clang++" ]; then git clone https://github.com/pathscale/libcxxrt.git libcxxrt; fi
   - if [ "`echo $CXX`" == "clang++" ]; then cd libcxxrt; fi
@@ -34,7 +33,7 @@ install:
   - if [ "`echo $CXX`" == "clang++" ]; then sudo cp lib/libcxxrt.so /usr/lib; fi
   - if [ "`echo $CXX`" == "clang++" ]; then sudo ln -sf /usr/lib/libcxxrt.so /usr/lib/libcxxrt.so.1; fi
   - if [ "`echo $CXX`" == "clang++" ]; then sudo ln -sf /usr/lib/libcxxrt.so /usr/lib/libcxxrt.so.1.0; fi
-  - if [ "`echo $CXX`" == "clang++" ]; then cd $cwd; fi
+  - if [ "`echo $CXX`" == "clang++" ]; then cd /tmp; fi
   - if [ "`echo $CXX`" == "clang++" ]; then cd libcxx; fi
   - if [ "`echo $CXX`" == "clang++" ]; then mkdir build; fi
   - if [ "`echo $CXX`" == "clang++" ]; then cd build; fi
