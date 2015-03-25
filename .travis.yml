@@ -12,6 +12,8 @@ env:
 install:
   - sudo apt-get update -qq
   - sudo apt-get install libc6-i386
+  - cwd=$(pwd)
+  - cd /tmp
   - wget http://www.cmake.org/files/v3.0/cmake-3.0.1-Linux-i386.sh
   - sudo sh cmake-3.0.1-Linux-i386.sh --prefix=/usr/local --exclude-subdir
   # credit: https://github.com/beark/ftl/
@@ -39,7 +41,7 @@ install:
   - if [ "`echo $CXX`" == "clang++" ]; then cmake -DLIBCXX_CXX_ABI=libcxxrt -DLIBCXX_CXX_ABI_INCLUDE_PATHS="../../libcxxrt/src" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..; fi
   - if [ "`echo $CXX`" == "clang++" ]; then make; fi
   - if [ "`echo $CXX`" == "clang++" ]; then sudo make install; fi
-  - if [ "`echo $CXX`" == "clang++" ]; then cd $cwd; fi
+  - cd $cwd
 
 script:
   - mkdir build
@@ -51,5 +53,4 @@ after_success:
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then wget http://apt.biicode.com/install.sh && chmod +x install.sh && ./install.sh && rm install.sh; fi
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then bii user ${BII_USERNAME} -p ${BII_PASSWORD}; fi
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then bii init -L; fi
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then git status; fi
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then bii publish -r; fi
