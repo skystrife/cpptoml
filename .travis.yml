@@ -46,6 +46,6 @@ deploy:
   provider: biicode
   user: skystrife
   password:
-    secure: DRkcgT5BDTmgy69fcojyY6hFHMKPdoj6qo039gRCm7q1j8A4tDZ8kgfSO66lhxcyxiR4EHdZR2ZntDOmg8lvyuSVirOLZj5k7qT2WkvqHOSp+uT8maG9M1z+Lv0waZpqHCvGq1k9WYeGho9JU8+YziSueEulu8gHKzu4mlyMxJs=
+    secure: Sak8c0P5XF622hg9sS+G1F3d0daSlJMXxAFVGlcfRJ9NL4JEw46MZK1/2u0YsB8634RGy6KNTEwVijwm7Euo080Keu0pkdtB7lDfTSAdTuxGE5ovgEWw05xVWb5dXoGKL68p0ZssX7NS6G56pVObdm7caUbuNuMVG/m330u4CwA=
   on:
     repo: skystrife/cpptoml
