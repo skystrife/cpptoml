@@ -2,7 +2,6 @@
 A header-only library for parsing [TOML][toml] configuration files.
 
 Targets: [TOML v0.4.0][currver]
-[![Build Status](https://webapi.biicode.com/v1/badges/amalulla/amalulla/cpptoml/master)](https://www.biicode.com/amalulla/cpptoml) 
 
 It is reasonably conforming, with the exception of unicode escape
 characters in strings. This includes support for the new DateTime format,
@@ -16,6 +15,8 @@ Alternatives:
 
 ## Build Status
 [![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
+
+[![Build Status](https://webapi.biicode.com/v1/badges/skystrife/skystrife/cpptoml/master)](https://www.biicode.com/skystrife/cpptoml)
 
 ## Test Results
 The following two tests are the only failing tests from [the toml-test
@@ -52,7 +53,8 @@ cmake ../
 make
 ```
 
-Compile it on Linux, OS X and Windows (MinGW 4.9 y Visual Studio 12) with biicode:
+Compile it on Linux, OS X and Windows (MinGW 4.9 and Visual Studio 12) with
+[biicode]:
 ```
 bii init -L
 bii build
@@ -68,3 +70,4 @@ example usage.
 [ctoml]: https://github.com/evilncrazy/ctoml
 [libtoml]: https://github.com/ajwans/libtoml
 [tinytoml]: https://github.com/mayah/tinytoml
+[biicode]: https://www.biicode.com
