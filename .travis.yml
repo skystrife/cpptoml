@@ -4,6 +4,11 @@ compiler:
   - clang
   - gcc
 
+env:
+  global:
+    - BII_USERNAME=skystrife
+    - secure: "Np+fTiyksv5HbUdgRvvSeA0WdXk3Ke6L8GnWsyGj6uvNCrlFFXJfZitSrIL+Ce3R6EbOmp0HOWtRYokmcYnrx91LlLHT2z42MdFZoeYLNE8L6KoFaytJppg/M1emvFR1GiyH90/lAyzTnN7m8bovSLANEN3DsMeZY6DM24mkFvs="
+
 install:
   - sudo apt-get update -qq
   - sudo apt-get install libc6-i386
@@ -42,10 +47,7 @@ script:
   - cmake .. -DCMAKE_BUILD_TYPE=Debug
   - make
 
-deploy:
-  provider: biicode
-  user: skystrife
-  password:
-    secure: Sak8c0P5XF622hg9sS+G1F3d0daSlJMXxAFVGlcfRJ9NL4JEw46MZK1/2u0YsB8634RGy6KNTEwVijwm7Euo080Keu0pkdtB7lDfTSAdTuxGE5ovgEWw05xVWb5dXoGKL68p0ZssX7NS6G56pVObdm7caUbuNuMVG/m330u4CwA=
-  on:
-    repo: skystrife/cpptoml
+after_success:
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then wget http://apt.biicode.com/install.sh && chmod +x install.sh && ./install.sh; fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then bii user ${BII_USERNAME} -p ${BII_PASSWORD}; fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then bii publish fi;
