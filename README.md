@@ -2,6 +2,7 @@
 A header-only library for parsing [TOML][toml] configuration files.
 
 Targets: [TOML v0.4.0][currver]
+[![Build Status](https://webapi.biicode.com/v1/badges/amalulla/amalulla/cpptoml/master)](https://www.biicode.com/amalulla/cpptoml) 
 
 It is reasonably conforming, with the exception of unicode escape
 characters in strings. This includes support for the new DateTime format,
@@ -49,6 +50,13 @@ mkdir build
 cd build
 cmake ../
 make
+```
+
+Compile it on Linux, OS X and Windows (MinGW 4.9 y Visual Studio 12) with biicode:
+
+```
+bii init -L
+bii build
 ```
 
 # Example Usage

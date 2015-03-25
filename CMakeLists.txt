@@ -7,7 +7,7 @@ include(CheckCXXSourceRuns)
 
 option(USE_LIBCXX "Use libc++ for the C++ standard library" ON)
 
-if(UNIX)
+if(UNIX OR MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         if(USE_LIBCXX)
@@ -108,6 +108,20 @@ int main() {
     date.tm_sec = stoi(results[6]);
     return 0;
 }" CPPTOML_HAS_STD_REGEX)
+
+IF(BIICODE)
+    ADD_BIICODE_TARGETS()
+    # These lines can be factorized, but dont want to mess at first instance
+    target_compile_options(${BII_LIB_TARGET} INTERFACE ${STDOPT} ${LIBCXX_OPTIONS})
+    if(CPPTOML_HAS_STD_PUT_TIME)
+        target_compile_definitions(${BII_LIB_TARGET} INTERFACE -DCPPTOML_HAS_STD_PUT_TIME=1)
+    endif()
+    if (CPPTOML_HAS_STD_REGEX)
+        target_compile_definitions(${BII_LIB_TARGET} INTERFACE -DCPPTOML_HAS_STD_REGEX=1)
+    endif()
+    target_link_libraries(${BII_LIB_TARGET} INTERFACE ${LIBCXX_LIBRARY} ${CXXABI_LIBRARY})
+    return()
+ENDIF()
 
 add_library(cpptoml INTERFACE)
 target_include_directories(cpptoml INTERFACE ${PROJECT_SOURCE_DIR}/include)

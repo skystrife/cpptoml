@@ -2,3 +2,5 @@
 *.o
 .ycm_*
 build/
+bii/
+bin/
