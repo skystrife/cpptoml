@@ -41,3 +41,11 @@ script:
   - cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Debug
   - make
+
+deploy:
+  provider: biicode
+  user: skystrife
+  password:
+    secure: DRkcgT5BDTmgy69fcojyY6hFHMKPdoj6qo039gRCm7q1j8A4tDZ8kgfSO66lhxcyxiR4EHdZR2ZntDOmg8lvyuSVirOLZj5k7qT2WkvqHOSp+uT8maG9M1z+Lv0waZpqHCvGq1k9WYeGho9JU8+YziSueEulu8gHKzu4mlyMxJs=
+  on:
+    repo: skystrife/cpptoml
