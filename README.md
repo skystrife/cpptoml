@@ -54,7 +54,8 @@ make
 ```
 
 Compile it on Linux, OS X and Windows (MinGW 4.9 and Visual Studio 12) with
-[biicode]:
+[biicode][biicode]:
+
 ```
 bii init -L
 bii build
