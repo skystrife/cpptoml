@@ -65,6 +65,22 @@ bii build
 See the root directory files `parse.cpp` and `parse_stdin.cpp` for an
 example usage.
 
+# Use it in biicode
+
+``bii init -L``
+
+Fill your ``biicode.conf`` file just like this:
+
+```
+[requirements]
+    skystrife/cpptoml: 0
+
+[includes]
+     cpptoml.h :skystrife/cpptoml/include
+```
+ 
+``bii build`` and you're ready to go!
+
 [currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md
 [toml]: https://github.com/toml-lang/toml
 [toml-test]: https://github.com/BurntSushi/toml-test
@@ -72,3 +88,4 @@ example usage.
 [libtoml]: https://github.com/ajwans/libtoml
 [tinytoml]: https://github.com/mayah/tinytoml
 [biicode]: https://www.biicode.com
+
