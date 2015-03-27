@@ -78,8 +78,9 @@ Fill your ``biicode.conf`` file just like this:
 [includes]
      cpptoml.h :skystrife/cpptoml/include
 ```
- 
-``bii build`` and you're ready to go!
+
+``bii build`` and you're ready to go! (An example block is available here:
+[amalulla/parse-toml](https://www.biicode.com/amalulla/parse-toml))
 
 [currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md
 [toml]: https://github.com/toml-lang/toml
@@ -88,4 +89,3 @@ Fill your ``biicode.conf`` file just like this:
 [libtoml]: https://github.com/ajwans/libtoml
 [tinytoml]: https://github.com/mayah/tinytoml
 [biicode]: https://www.biicode.com
-
