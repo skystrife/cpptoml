@@ -9,34 +9,6 @@ option(USE_LIBCXX "Use libc++ for the C++ standard library" ON)
 
 if(UNIX OR MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        if(USE_LIBCXX)
-            message("-- Locating libc++...")
-            find_library(LIBCXX_LIBRARY NAMES c++ cxx)
-            if(LIBCXX_LIBRARY)
-                message("-- Located libc++, using it.")
-                set(LIBCXX_OPTIONS "-stdlib=libc++")
-                message("--     Locating libc++'s abi...")
-                find_library(LIBCXXABI_LIBRARY NAMES c++abi)
-                find_library(LIBCXXRT_LIBRARY NAMES cxxrt)
-                if(LIBCXXABI_LIBRARY)
-                    message("--     Found libc++abi, using it.")
-                    set(CXXABI_LIBRARY ${LIBCXXABI_LIBRARY})
-                elseif(LIBCXXRT_LIBRARY)
-                    message("--     Found libcxxrt, using it.")
-                    set(CXXABI_LIBRARY ${LIBCXXRT_LIBRARY})
-                else()
-                    message("--     No abi library found. "
-                            "Attempting to continue without one...")
-                endif()
-            else()
-                message("-- Could not find libc++, will not use it.")
-            endif()
-        endif()
-    endif()
-
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXX_OPTIONS}")
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${CXXABI_LIBRARY}")
 
     # if we don't already set the standard for the compiler, detect the
     # best one available and use it
@@ -77,6 +49,59 @@ if(UNIX OR MINGW)
         endif()
 
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STDOPT}")
+    endif()
+
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       if(CMAKE_GENERATOR STREQUAL "Ninja")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+        endif()
+        if(USE_LIBCXX)
+           message("-- Locating libc++...")
+            find_library(LIBCXX_LIBRARY NAMES c++ cxx)
+            if(LIBCXX_LIBRARY)
+                message("-- Located libc++: ${LIBCXX_LIBRARY}")
+                set(LIBCXX_OPTIONS "-stdlib=libc++")
+                get_filename_component(LIBCXX_LIB_PATH ${LIBCXX_LIBRARY}
+                                       DIRECTORY)
+                find_path(LIBCXX_PREFIX c++/v1/algorithm
+                          PATHS ${LIBCXX_LIB_PATH}/../include
+                          ${CMAKE_SYSTEM_PREFIX_PATH})
+                set(LIBCXX_INCLUDE_DIR ${LIBCXX_PREFIX}/c++/v1/)
+                message("-- Located libc++ include path: ${LIBCXX_INCLUDE_DIR}")
+
+                message("--     Locating libc++'s abi...")
+                find_library(LIBCXXABI_LIBRARY NAMES c++abi)
+                find_library(LIBCXXRT_LIBRARY NAMES cxxrt)
+                if(LIBCXXABI_LIBRARY)
+                    message("--     Found libc++abi: ${LIBCXXABI_LIBRARY}")
+                    set(CXXABI_LIBRARY ${LIBCXXABI_LIBRARY})
+                elseif(LIBCXXRT_LIBRARY)
+                    message("--     Found libcxxrt: ${LIBCXXRT_LIBRARY}")
+                    set(CXXABI_LIBRARY ${LIBCXXRT_LIBRARY})
+                else()
+                    message("--     No abi library found. "
+                            "Attempting to continue without one...")
+                endif()
+            else()
+                message("-- Could not find libc++, will not use it.")
+            endif()
+        endif()
+    endif()
+
+    find_library(LIBDL_LIBRARY NAMES dl ldl)
+    if(LIBDL_LIBRARY)
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${LIBDL_LIBRARY}")
+    endif()
+
+    if(LIBCXX_OPTIONS)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXX_OPTIONS}")
+    endif()
+
+    if(CXXABI_LIBRARY)
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${LIBCXX_OPTIONS} ${CXXABI_LIBRARY} -L${LIBCXX_LIB_PATH}")
+    endif()
+    if(LIBCXX_INCLUDE_DIR)
+      set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES} ${LIBCXX_INCLUDE_DIR}")
     endif()
 endif()
 
@@ -124,14 +149,28 @@ IF(BIICODE)
 ENDIF()
 
 add_library(cpptoml INTERFACE)
+
 target_include_directories(cpptoml INTERFACE ${PROJECT_SOURCE_DIR}/include)
-target_compile_options(cpptoml INTERFACE ${STDOPT} ${LIBCXX_OPTIONS})
+target_compile_options(cpptoml INTERFACE ${STDOPT})
+
+if(CXXABI_LIBRARY)
+    target_link_libraries(cpptoml INTERFACE ${CXXABI_LIBRARY})
+endif()
+
+if(LIBCXX_LIBRARY)
+    target_include_directories(cpptoml SYSTEM INTERFACE ${LIBCXX_INCLUDE_DIR})
+    target_compile_options(cpptoml INTERFACE ${LIBCXX_OPTIONS})
+    target_link_libraries(cpptoml INTERFACE -L${LIBCXX_LIB_PATH})
+endif()
+
 if(CPPTOML_HAS_STD_PUT_TIME)
     target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_PUT_TIME=1)
 endif()
+
 if (CPPTOML_HAS_STD_REGEX)
     target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_REGEX=1)
 endif()
+
 target_link_libraries(cpptoml INTERFACE ${LIBCXX_LIBRARY} ${CXXABI_LIBRARY})
 
 add_executable(parse parse.cpp)
