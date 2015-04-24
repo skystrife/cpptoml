@@ -24,11 +24,22 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
+#include <map>
 #include <vector>
 
 namespace cpptoml
 {
+
+    class base;                 // forward declaration
+#if defined(CPPTOML_USE_MAP)
+    // a std::map will ensure that entries a sorted, albeit at a slight
+    // performance penalty relative to the (default) unordered_map
+    using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
+#else 
+    // by default an unordered_map is used for best performance as the
+    // toml specification does not require entries to be sorted 
+    using string_to_base_map = std::unordered_map<std::string, std::shared_ptr<base>>;
+#endif
 
 template <class T>
 class option
@@ -394,15 +405,12 @@ class table : public base
     /**
      * tables can be iterated over.
      */
-    using iterator
-        = std::unordered_map<std::string, std::shared_ptr<base>>::iterator;
+    using iterator = string_to_base_map::iterator;
 
     /**
      * tables can be iterated over. Const version.
      */
-    using const_iterator
-        = std::unordered_map<std::string,
-                             std::shared_ptr<base>>::const_iterator;
+    using const_iterator = string_to_base_map::const_iterator;
 
     iterator begin()
     {
@@ -679,7 +687,7 @@ class table : public base
             }
         }
     }
-    std::unordered_map<std::string, std::shared_ptr<base>> map_;
+    string_to_base_map map_;
 };
 
 inline void table_array::print(std::ostream& stream, size_t depth,
