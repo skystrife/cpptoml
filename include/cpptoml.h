@@ -275,6 +275,20 @@ inline std::shared_ptr<value<T>> base::as()
     return nullptr;
 }
 
+// special case value<double> to allow getting an integer parameter as a
+// double value
+template <>
+inline std::shared_ptr<value<double>> base::as()
+{
+    if (auto v = std::dynamic_pointer_cast<value<double>>(shared_from_this()))
+        return v;
+
+    if (auto v = std::dynamic_pointer_cast<value<int64_t>>(shared_from_this()))
+        return std::make_shared<value<double>>(v->get());
+
+    return nullptr;
+}
+
 class array : public base
 {
   public:
