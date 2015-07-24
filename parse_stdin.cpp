@@ -117,5 +117,11 @@ int main()
         std::cerr << "Parsing failed: " << ex.what() << std::endl;
         return 1;
     }
+    catch (...)
+    {
+        std::cerr << "Something horrible happened!" << std::endl;
+        // return as if there was success so that toml-test will complain
+        return 0;
+    }
     return 0;
 }

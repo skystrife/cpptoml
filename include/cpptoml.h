@@ -1012,6 +1012,11 @@ class parser
     std::string parse_bare_key(std::string::iterator& it,
                                const std::string::iterator& end)
     {
+        if (it == end)
+        {
+            throw_parse_exception("Bare key missing name");
+        }
+
         auto key_end = end;
         --key_end;
         consume_backwards_whitespace(key_end, it);
