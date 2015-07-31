@@ -30,15 +30,16 @@
 namespace cpptoml
 {
 
-    class base;                 // forward declaration
+class base; // forward declaration
 #if defined(CPPTOML_USE_MAP)
-    // a std::map will ensure that entries a sorted, albeit at a slight
-    // performance penalty relative to the (default) unordered_map
-    using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
+// a std::map will ensure that entries a sorted, albeit at a slight
+// performance penalty relative to the (default) unordered_map
+using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
 #else
-    // by default an unordered_map is used for best performance as the
-    // toml specification does not require entries to be sorted
-    using string_to_base_map = std::unordered_map<std::string, std::shared_ptr<base>>;
+// by default an unordered_map is used for best performance as the
+// toml specification does not require entries to be sorted
+using string_to_base_map
+    = std::unordered_map<std::string, std::shared_ptr<base>>;
 #endif
 
 template <class T>
@@ -339,8 +340,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            return v->as<T>();
-        });
+                           return v->as<T>();
+                       });
 
         return result;
     }
@@ -356,10 +357,10 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            if (v->is_array())
-                return std::static_pointer_cast<array>(v);
-            return std::shared_ptr<array>{};
-        });
+                           if (v->is_array())
+                               return std::static_pointer_cast<array>(v);
+                           return std::shared_ptr<array>{};
+                       });
 
         return result;
     }
@@ -821,8 +822,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -895,8 +896,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -981,8 +982,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-            return c == '=';
-        });
+                                 return c == '=';
+                             });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1030,8 +1031,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == ' ' || c == '\t';
-            }) != key_end)
+                             return c == ' ' || c == '\t';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -1039,8 +1040,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == '[' || c == ']';
-            }) != key_end)
+                             return c == '[' || c == ']';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1437,8 +1438,9 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-            return c == ' ' || c == '\t' || c == '#';
-        });
+                                        return c == ' ' || c == '\t'
+                                               || c == '#';
+                                    });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1454,9 +1456,10 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
-        });
+                                return !is_number(c) && c != 'T' && c != 'Z'
+                                       && c != ':' && c != '-' && c != '+'
+                                       && c != '.';
+                            });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1554,8 +1557,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-            return c == ',' || c == ']' || c == '#';
-        });
+                                        return c == ',' || c == ']' || c == '#';
+                                    });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1733,6 +1736,268 @@ inline table parse_file(const std::string& filename)
         throw parse_exception{filename + " could not be opened for parsing"};
     parser p{file};
     return p.parse();
+}
+
+/**
+ * Escapes a string for output.  Copied from the example code.
+ */
+inline std::string escape_string(const std::string& str)
+{
+    std::string res;
+    for (auto it = str.begin(); it != str.end(); ++it)
+    {
+        if (*it == '\\')
+            res += "\\\\";
+        else if (*it == '"')
+            res += "\\\"";
+        else if (*it == '\n')
+            res += "\\n";
+        else
+            res += *it;
+    }
+    return res;
+}
+
+/**
+ * Writes an inline value to the given stream
+ */
+inline void write(std::ostream& s, base& b)
+{
+    if (auto v = b.as<std::string>())
+    {
+        s << "\"" << escape_string(v->get()) << "\"";
+    }
+    else if (auto v = b.as<int64_t>())
+    {
+        s << v->get();
+    }
+    else if (auto v = b.as<double>())
+    {
+        s << v->get();
+    }
+    else if (auto v = b.as<cpptoml::datetime>())
+    {
+        s << v->get();
+    }
+    else if (auto v = b.as<bool>())
+    {
+        s << (v->get() ? "true" : "false");
+    }
+}
+
+/**
+ * Writes a key/value pair for a simple value to the given stream
+ */
+inline void write(std::ostream& s, const std::string& k, base& b, int depth)
+{
+    for (int i = 0; i < depth; ++i)
+    {
+        s << "\t";
+    }
+
+    s << k << " = ";
+
+    write(s, b);
+
+    s << "\n";
+}
+
+/**
+ * Writes an array to the given stream
+ */
+inline void write(std::ostream& s, array& a)
+{
+    s << "[";
+
+    for (unsigned int i = 0; i < a.get().size(); ++i)
+    {
+        if (i > 0)
+        {
+            s << ", ";
+        }
+
+        if (a.get()[i]->is_table())
+        {
+            write(s, *a.get()[i]->as_table());
+        }
+        else if (a.get()[i]->is_array())
+        {
+            write(s, *a.get()[i]->as_array());
+        }
+        else
+        {
+            write(s, *a.get()[i]);
+        }
+    }
+
+    s << "]";
+}
+
+/**
+ * Writes a key/value pair where the value is an array to the given stream
+ */
+inline void write(std::ostream& s, const std::string& k, array& a, int depth)
+{
+    for (int i = 0; i < depth; ++i)
+    {
+        s << "\t";
+    }
+
+    s << k << " = ";
+
+    write(s, a);
+
+    s << "\n";
+}
+
+/**
+ * Writes an inline table to the given stream
+ */
+inline void write(std::ostream& s, table& t)
+{
+    s << "{";
+
+    auto i = t.begin();
+    auto iend = t.end();
+    bool first = true;
+
+    for (; i != iend; ++i)
+    {
+        if (!first)
+        {
+            s << ", ";
+        }
+
+        s << i->first << " = ";
+
+        if (i->second->is_table())
+        {
+            write(s, *i->second->as_table());
+        }
+        else if (i->second->is_array())
+        {
+            write(s, *i->second->as_array());
+        }
+        else
+        {
+            write(s, *i->second);
+        }
+
+        first = false;
+    }
+
+    s << "}";
+}
+
+/**
+ * Writes a key/value pair where the value is an inline table to the given
+ * stream.
+ */
+inline void write(std::ostream& s, const std::string& k, table& t, int depth)
+{
+    for (int i = 0; i < depth; ++i)
+    {
+        s << "\t";
+    }
+
+    s << k << " = ";
+
+    write(s, t);
+
+    s << "\n";
+}
+
+/**
+ * Writes a table to the given stream.  This is the base function that should
+ * be called to write out legal TOML.
+ */
+inline void write(std::ostream& s, table& t, std::vector<std::string> p,
+                  int depth, bool isTableArray = false)
+{
+    bool hasHeader = false;
+
+    if (!p.empty())
+    {
+        for (int i = 0; i < depth; ++i)
+        {
+            s << "\t";
+        }
+
+        s << "[";
+
+        if (isTableArray)
+        {
+            s << "[";
+        }
+
+        for (unsigned int i = 0; i < p.size(); ++i)
+        {
+            if (i > 0)
+            {
+                s << ".";
+            }
+
+            s << p[i];
+        }
+
+        if (isTableArray)
+        {
+            s << "]";
+        }
+
+        s << "]\n";
+
+        hasHeader = true;
+    }
+
+    // first pass we go through and write out all the simple values
+    auto i = t.begin();
+    auto iend = t.end();
+
+    for (; i != iend; ++i)
+    {
+        if (!i->second->is_table() && !i->second->is_table_array()
+            && !i->second->is_array())
+        {
+            write(s, i->first, *i->second, depth + int(hasHeader));
+        }
+        else if (i->second->is_array())
+        {
+            write(s, i->first, *(i->second->as_array()),
+                  depth + int(hasHeader));
+        }
+    }
+
+    if (depth == 0)
+    {
+        s << "\n";
+    }
+
+    // second pass...write the tables
+    i = t.begin();
+    for (; i != iend; ++i)
+    {
+        std::vector<std::string> path = p;
+        if (i->second->is_table())
+        {
+            path.push_back(i->first);
+            write(s, *(i->second->as_table()), path, path.size() - 1);
+        }
+        else if (i->second->is_table_array())
+        {
+            path.push_back(i->first);
+
+            for (auto& j : i->second->as_table_array()->get())
+            {
+                write(s, *j, path, path.size() - 1, true);
+            }
+        }
+    }
+
+    if (depth == 0)
+    {
+        s << "\n";
+    }
 }
 }
 #endif
