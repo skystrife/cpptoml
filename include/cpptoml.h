@@ -1908,8 +1908,8 @@ inline void write(std::ostream& s, const std::string& k, table& t, int depth)
 }
 
 /**
- * Writes a table to the given stream.  This is the base function that should
- * be called to write out legal TOML.
+ * Utility function to Writes a table to the given stream.  This is the
+ *  base function that should be called to write out legal TOML.
  */
 inline void write(std::ostream& s, table& t, std::vector<std::string> p,
                   int depth, bool isTableArray = false)
