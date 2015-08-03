@@ -140,31 +140,31 @@ class writer
     inline void visit(table_array& t, const std::vector<std::string>& p, bool in_array);
 
   protected:
-    virtual void write_value_header(const std::vector< std::string > &p) = 0;
+    virtual void write_value_header(base &b, const std::vector< std::string > &p) = 0;
     virtual void write(base& b, const std::vector<std::string>& p) = 0;
-    virtual void write_value_trailer(const std::vector< std::string >& p) = 0;
+    virtual void write_value_trailer(base &b, const std::vector< std::string >& p) = 0;
 
-    virtual void write_array_header(const std::vector<std::string>& p) = 0;
-    virtual void write_array_separator(const std::vector<std::string>& p) = 0;
-    virtual void write_array_item_header(const std::vector< std::string > &p) = 0;
-    virtual void write_array_item_trailer(const std::vector< std::string > &p) = 0;
-    virtual void write_array_trailer(const std::vector<std::string>& p) = 0;
+    virtual void write_array_header(array &a, const std::vector<std::string>& p) = 0;
+    virtual void write_array_separator(array &a, const std::vector<std::string>& p) = 0;
+    virtual void write_array_item_header(base &b, const std::vector< std::string > &p) = 0;
+    virtual void write_array_item_trailer(base &b, const std::vector< std::string > &p) = 0;
+    virtual void write_array_trailer(array &a, const std::vector<std::string>& p) = 0;
 
     virtual void write_table_header(table& t, const std::vector<std::string>& p,
                                     bool in_array = false) = 0;
-    virtual void write_table_array_header(const std::vector<std::string>& p)
+    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
         = 0;
-    virtual void write_table_separator(const std::vector<std::string>& p) = 0;
-    virtual void write_table_array_separator(const std::vector<std::string>& p)
+    virtual void write_table_separator(table &t, const std::vector<std::string>& p) = 0;
+    virtual void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
         = 0;
     virtual void write_table_item_header(base &b, const std::vector< std::string > &p) = 0;
     virtual void write_table_array_item_header(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_table_item_trailer(const std::vector< std::string > &p) = 0;
-    virtual void write_table_array_item_trailer(const std::vector< std::string > &p) = 0;
+    virtual void write_table_item_trailer(base &b, const std::vector< std::string > &p) = 0;
+    virtual void write_table_array_item_trailer(base &b, const std::vector< std::string > &p) = 0;
     virtual void write_table_trailer(table& t,
                                      const std::vector<std::string>& p,
                                      bool in_array = false) = 0;
-    virtual void write_table_array_trailer(const std::vector<std::string>& p)
+    virtual void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
         = 0;
 
   protected:
@@ -1853,23 +1853,23 @@ inline void writer::visit(base& b, const std::vector<std::string>& p, bool in_ar
 template <class T>
 inline void writer::visit(value<T>& v, const std::vector<std::string>& p, bool in_array)
 {
-    write_value_header(p);
+    write_value_header(v, p);
     write(v, p);
-    write_value_trailer(p);
+    write_value_trailer(v, p);
 }
 
 inline void writer::visit(array& a, const std::vector<std::string>& p, bool in_array)
 {
-    write_array_header(p);
+    write_array_header(a, p);
 
     for (unsigned int i = 0; i < a.get().size(); ++i)
     {
         if (i > 0)
         {
-            write_array_separator(p);
+            write_array_separator(a, p);
         }
 
-        write_array_item_header(p);
+        write_array_item_header(*a.get()[i], p);
         
         if (a.get()[i]->is_array())
         {
@@ -1880,10 +1880,10 @@ inline void writer::visit(array& a, const std::vector<std::string>& p, bool in_a
             a.get()[i]->accept(*this, p);
         }
         
-        write_array_item_trailer(p);
+        write_array_item_trailer(*a.get()[i], p);
     }
 
-    write_array_trailer(p);
+    write_array_trailer(a, p);
 }
 
 inline void writer::visit(table& t, const std::vector<std::string>& p, bool in_array)
@@ -1911,12 +1911,12 @@ inline void writer::visit(table& t, const std::vector<std::string>& p, bool in_a
 
         if (i > 0)
         {
-            write_table_separator(path);
+            write_table_separator(t, path);
         }
 
         write_table_item_header(*t.get(values[i]), path);
         t.get(values[i])->accept(*this, path);
-        write_table_item_trailer(path);
+        write_table_item_trailer(*t.get(values[i]), path);
     }
 
     for (unsigned int i = 0; i < tables.size(); ++i)
@@ -1926,12 +1926,12 @@ inline void writer::visit(table& t, const std::vector<std::string>& p, bool in_a
 
         if (values.size() > 0 || i > 0)
         {
-            write_table_separator(path);
+            write_table_separator(t, path);
         }
 
         write_table_item_header(*t.get(tables[i]), path);
         t.get(tables[i])->accept(*this, path);
-        write_table_item_trailer(path);
+        write_table_item_trailer(*t.get(tables[i]), path);
     }
 
     write_table_trailer(t, p, in_array);
@@ -1939,21 +1939,21 @@ inline void writer::visit(table& t, const std::vector<std::string>& p, bool in_a
 
 inline void writer::visit(table_array& t, const std::vector<std::string>& p, bool in_array)
 {
-    write_table_array_header(p);
+    write_table_array_header(t, p);
 
     for (unsigned int j = 0; j < t.get().size(); ++j)
     {
         if (j > 0)
         {
-            write_table_array_separator(p);
+            write_table_array_separator(t, p);
         }
 
         write_table_array_item_header(*t.get()[j], p);
         t.get()[j]->accept(*this, p, true);
-        write_table_array_item_trailer(p);
+        write_table_array_item_trailer(*t.get()[j], p);
     }
 
-    write_table_array_trailer(p);
+    write_table_array_trailer(t, p);
 }
 
 class toml_writer : public writer
@@ -1964,7 +1964,7 @@ class toml_writer : public writer
     }
 
   protected:
-    inline void write_value_header(const std::vector<std::string>& p)
+    inline void write_value_header(base &b, const std::vector<std::string>& p)
     {
     }
     
@@ -1992,29 +1992,29 @@ class toml_writer : public writer
         }
     }
     
-    inline void write_value_trailer(const std::vector<std::string>& p)
+    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_header(const std::vector<std::string>& p)
+    inline void write_array_header(array &a, const std::vector<std::string>& p)
     {
         stream_ << "[";
     }
 
-    inline void write_array_separator(const std::vector<std::string>& p)
+    inline void write_array_separator(array &a, const std::vector<std::string>& p)
     {
         stream_ << ", ";
     }
     
-    inline void write_array_item_header(const std::vector<std::string>& p)
+    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_item_trailer(const std::vector<std::string>& p)
+    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_trailer(const std::vector<std::string>& p)
+    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
     {
         stream_ << "]";
     }
@@ -2052,16 +2052,16 @@ class toml_writer : public writer
         }
     }
 
-    virtual void write_table_array_header(const std::vector<std::string>& p)
+    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_table_separator(const std::vector<std::string>& p)
+    inline void write_table_separator(table &t, const std::vector<std::string>& p)
     {
         stream_ << "\n";
     }
 
-    inline void write_table_array_separator(const std::vector<std::string>& p)
+    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
     {
     }
     
@@ -2078,11 +2078,11 @@ class toml_writer : public writer
     {
     }
 
-    inline void write_table_item_trailer(const std::vector<std::string>& p)
+    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
     {
     }
     
-    inline void write_table_array_item_trailer(const std::vector< std::string> &p)
+    inline void write_table_array_item_trailer(base &b, const std::vector< std::string> &p)
     {
     }
 
@@ -2092,7 +2092,7 @@ class toml_writer : public writer
         stream_ << "\n";
     }
 
-    inline void write_table_array_trailer(const std::vector<std::string>& p)
+    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << "\n";
     }
@@ -2132,7 +2132,7 @@ class json_writer : public writer
     }
 
   protected:
-    inline void write_value_header(const std::vector<std::string>& p)
+    inline void write_value_header(base &b, const std::vector<std::string>& p)
     {
     }
     
@@ -2160,29 +2160,29 @@ class json_writer : public writer
         }
     }
     
-    inline void write_value_trailer(const std::vector<std::string>& p)
+    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_header(const std::vector<std::string>& p)
+    inline void write_array_header(array &a, const std::vector<std::string>& p)
     {
         stream_ << "[";
     }
 
-    inline void write_array_separator(const std::vector<std::string>& p)
+    inline void write_array_separator(array &a, const std::vector<std::string>& p)
     {
         stream_ << ", ";
     }
 
-    inline void write_array_item_header(const std::vector<std::string>& p)
+    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
     {
     }
     
-    inline void write_array_item_trailer(const std::vector<std::string>& p)
+    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_trailer(const std::vector<std::string>& p)
+    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
     {
         stream_ << "]";
     }
@@ -2193,17 +2193,17 @@ class json_writer : public writer
         stream_ << "{";
     }
 
-    virtual void write_table_array_header(const std::vector<std::string>& p)
+    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << "[";
     }
 
-    inline void write_table_separator(const std::vector<std::string>& p)
+    inline void write_table_separator(table &t, const std::vector<std::string>& p)
     {
         stream_ << ", ";
     }
 
-    inline void write_table_array_separator(const std::vector<std::string>& p)
+    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << ", ";
     }
@@ -2217,11 +2217,11 @@ class json_writer : public writer
     {
     }
 
-    inline void write_table_item_trailer(const std::vector<std::string>& p)
+    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
     {
     }
     
-    inline void write_table_array_item_trailer(const std::vector<std::string>& p)
+    inline void write_table_array_item_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
@@ -2231,7 +2231,7 @@ class json_writer : public writer
         stream_ << "}";
     }
 
-    inline void write_table_array_trailer(const std::vector<std::string>& p)
+    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << "]";
     }
@@ -2271,7 +2271,7 @@ class xml_writer : public writer
     }
 
   protected:
-    inline void write_value_header(const std::vector<std::string>& p)
+    inline void write_value_header(base &b, const std::vector<std::string>& p)
     {
     }
     
@@ -2299,30 +2299,30 @@ class xml_writer : public writer
         }
     }
     
-    inline void write_value_trailer(const std::vector<std::string>& p)
+    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_header(const std::vector<std::string>& p)
+    inline void write_array_header(array &a, const std::vector<std::string>& p)
     {
         stream_ << "<Array>";
     }
 
-    inline void write_array_separator(const std::vector<std::string>& p)
+    inline void write_array_separator(array &a, const std::vector<std::string>& p)
     {
     }
     
-    inline void write_array_item_header(const std::vector<std::string>& p)
+    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
     {
         stream_ << "<Item>";
     }
 
-    inline void write_array_item_trailer(const std::vector<std::string>& p)
+    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
     {
         stream_ << "</Item>";
     }
 
-    inline void write_array_trailer(const std::vector<std::string>& p)
+    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
     {
         stream_ << "</Array>";
     }
@@ -2333,22 +2333,16 @@ class xml_writer : public writer
         stream_ << "<Table>";
     }
 
-    virtual void write_table_array_header(const std::vector<std::string>& p)
+    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << "<Array>";
     }
 
-    inline void write_table_identifier(const std::string& id,
-                                       base &b,
-                                       const std::vector<std::string>& p)
+    inline void write_table_separator(table &t, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_table_separator(const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_array_separator(const std::vector<std::string>& p)
+    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
     {
     }
     
@@ -2365,7 +2359,7 @@ class xml_writer : public writer
         stream_ << "<Item>";
     }
 
-    inline void write_table_item_trailer(const std::vector<std::string>& p)
+    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
     {
         if (!p.empty())
         {
@@ -2373,7 +2367,7 @@ class xml_writer : public writer
         }
     }
     
-    inline void write_table_array_item_trailer(const std::vector<std::string>& p)
+    inline void write_table_array_item_trailer(base &b, const std::vector<std::string>& p)
     {
         stream_ << "</Item>";
     }
@@ -2384,7 +2378,7 @@ class xml_writer : public writer
         stream_ << "</Table>";
     }
 
-    inline void write_table_array_trailer(const std::vector<std::string>& p)
+    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
     {
         stream_ << "</Array>";
     }
