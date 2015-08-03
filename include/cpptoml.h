@@ -1959,7 +1959,7 @@ inline void writer::visit(table_array& t, const std::vector<std::string>& p, boo
 class toml_writer : public writer
 {
   public:
-    inline toml_writer(std::ostream& s) : writer(s)
+    inline toml_writer(std::ostream& s) : writer(s), has_naked_endline_(false)
     {
     }
 
@@ -1972,23 +1972,25 @@ class toml_writer : public writer
     {
         if (auto v = b.as<std::string>())
         {
-            stream_ << "\"" << escape_string(v->get()) << "\"";
+            write("\"");
+            write(escape_string(v->get()));
+            write("\"");
         }
         else if (auto v = b.as<int64_t>())
         {
-            stream_ << v->get();
+            write(v->get());
         }
         else if (auto v = b.as<double>())
         {
-            stream_ << v->get();
+            write(v->get());
         }
         else if (auto v = b.as<cpptoml::datetime>())
         {
-            stream_ << v->get();
+            write(v->get());
         }
         else if (auto v = b.as<bool>())
         {
-            stream_ << (v->get() ? "true" : "false");
+            write((v->get() ? "true" : "false"));
         }
     }
     
@@ -1998,12 +2000,12 @@ class toml_writer : public writer
 
     inline void write_array_header(array &a, const std::vector<std::string>& p)
     {
-        stream_ << "[";
+        write("[");
     }
 
     inline void write_array_separator(array &a, const std::vector<std::string>& p)
     {
-        stream_ << ", ";
+        write(", ");
     }
     
     inline void write_array_item_header(base &b, const std::vector<std::string>& p)
@@ -2016,7 +2018,7 @@ class toml_writer : public writer
 
     inline void write_array_trailer(array &a, const std::vector<std::string>& p)
     {
-        stream_ << "]";
+        write("]");
     }
 
     virtual void write_table_header(table& t, const std::vector<std::string>& p,
@@ -2026,29 +2028,30 @@ class toml_writer : public writer
         {
             indent(int(p.size()) - 1);
 
-            stream_ << "[";
+            write("[");
 
             if (in_array)
             {
-                stream_ << "[";
+                write("[");
             }
 
             for (unsigned int i = 0; i < p.size(); ++i)
             {
                 if (i > 0)
                 {
-                    stream_ << ".";
+                    write(".");
                 }
 
-                stream_ << p[i];
+                write(p[i]);
             }
 
             if (in_array)
             {
-                stream_ << "]";
+                write("]");
             }
 
-            stream_ << "]\n";
+            write("]");
+            endline();
         }
     }
 
@@ -2058,7 +2061,7 @@ class toml_writer : public writer
 
     inline void write_table_separator(table &t, const std::vector<std::string>& p)
     {
-        stream_ << "\n";
+        endline();
     }
 
     inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
@@ -2070,7 +2073,8 @@ class toml_writer : public writer
         if (!b.is_table() && !b.is_table_array())
         {
             indent(int(p.size()) - 1);
-            stream_ << p[p.size() - 1] << " = ";
+            write(p[p.size() - 1]);
+            write(" = ");
         }
     }
     
@@ -2089,12 +2093,12 @@ class toml_writer : public writer
     inline void write_table_trailer(table& t, const std::vector<std::string>& p,
                                     bool in_array = false)
     {
-        stream_ << "\n";
+        endline();
     }
 
     inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
     {
-        stream_ << "\n";
+        endline();
     }
 
   private:
@@ -2102,7 +2106,7 @@ class toml_writer : public writer
     {
         for (int i = 0; i < depth; ++i)
         {
-            stream_ << "\t";
+            write("\t");
         }
     }
 
@@ -2122,6 +2126,25 @@ class toml_writer : public writer
         }
         return res;
     }
+    
+    template< class T >
+    inline void write(const T &v)
+    {
+        stream_ << v;
+        has_naked_endline_ = false;
+    }
+    
+    inline void endline()
+    {
+        if (!has_naked_endline_)
+        {
+            stream_ << "\n";
+            has_naked_endline_ = true;
+        }
+    }
+    
+private:
+    bool has_naked_endline_;
 };
 
 class json_writer : public writer
