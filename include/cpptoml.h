@@ -123,54 +123,6 @@ class array;
 class table;
 class table_array;
 
-class writer
-{
-  public:
-    inline writer(std::ostream& s);
-
-  public:
-    inline void visit(table& t, const std::vector<std::string>& p, bool in_array);
-    inline void visit(base& b, const std::vector<std::string>& p, bool in_array);
-
-  private:
-    inline void visit(array& a, const std::vector<std::string>& p, bool in_array);
-
-    template <class T>
-    inline void visit(value<T>& v, const std::vector<std::string>& p, bool in_array);
-    inline void visit(table_array& t, const std::vector<std::string>& p, bool in_array);
-
-  protected:
-    virtual void write_value_header(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write(base& b, const std::vector<std::string>& p) = 0;
-    virtual void write_value_trailer(base &b, const std::vector< std::string >& p) = 0;
-
-    virtual void write_array_header(array &a, const std::vector<std::string>& p) = 0;
-    virtual void write_array_separator(array &a, const std::vector<std::string>& p) = 0;
-    virtual void write_array_item_header(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_array_item_trailer(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_array_trailer(array &a, const std::vector<std::string>& p) = 0;
-
-    virtual void write_table_header(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false) = 0;
-    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
-        = 0;
-    virtual void write_table_separator(table &t, const std::vector<std::string>& p) = 0;
-    virtual void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
-        = 0;
-    virtual void write_table_item_header(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_table_array_item_header(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_table_item_trailer(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_table_array_item_trailer(base &b, const std::vector< std::string > &p) = 0;
-    virtual void write_table_trailer(table& t,
-                                     const std::vector<std::string>& p,
-                                     bool in_array = false) = 0;
-    virtual void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
-        = 0;
-
-  protected:
-    std::ostream& stream_;
-};
-
 /**
  * A generic base TOML value used for type erasure.
  */
@@ -261,11 +213,10 @@ class base : public std::enable_shared_from_this<base>
     template <class T>
     std::shared_ptr<value<T>> as();
 
-    virtual void accept(writer& w, const std::vector<std::string>& p
-                                   = std::vector<std::string>(), bool in_array = false)
-    {
-        w.visit(*this, p, in_array);
-    }
+    template <class T>
+    inline void accept(T& visitor, const std::vector<std::string>& p
+                                   = std::vector<std::string>(),
+                       bool in_array = false);
 };
 
 template <class T>
@@ -317,6 +268,14 @@ class value : public base
     void print(std::ostream& stream) const override
     {
         stream << data_;
+    }
+
+    template <class U>
+    inline void accept(U& visitor, const std::vector<std::string>& p
+                                   = std::vector<std::string>(),
+                       bool in_array = false)
+    {
+        visitor.visit(*this, p, in_array);
     }
 
   private:
@@ -405,8 +364,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            return v->as<T>();
-        });
+                           return v->as<T>();
+                       });
 
         return result;
     }
@@ -422,10 +381,10 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            if (v->is_array())
-                return std::static_pointer_cast<array>(v);
-            return std::shared_ptr<array>{};
-        });
+                           if (v->is_array())
+                               return std::static_pointer_cast<array>(v);
+                           return std::shared_ptr<array>{};
+                       });
 
         return result;
     }
@@ -441,6 +400,14 @@ class array : public base
                 stream << ", ";
         }
         stream << " ]";
+    }
+
+    template <class T>
+    inline void accept(T& visitor, const std::vector<std::string>& p
+                                   = std::vector<std::string>(),
+                       bool in_array = false)
+    {
+        visitor.visit(*this, p, in_array);
     }
 
   private:
@@ -467,6 +434,14 @@ class table_array : public base
     void print(std::ostream& stream) const override
     {
         print(stream, 0, "");
+    }
+
+    template <class T>
+    inline void accept(T& visitor, const std::vector<std::string>& p
+                                   = std::vector<std::string>(),
+                       bool in_array = false)
+    {
+        visitor.visit(*this, p, in_array);
     }
 
   private:
@@ -693,10 +668,12 @@ class table : public base
         print(stream, 0);
     }
 
-    inline void accept(writer& w, const std::vector<std::string>& p
-                                  = std::vector<std::string>(), bool in_array = false)
+    template <class T>
+    inline void accept(T& visitor, const std::vector<std::string>& p
+                                   = std::vector<std::string>(),
+                       bool in_array = false)
     {
-        w.visit(*this, p, in_array);
+        visitor.visit(*this, p, in_array);
     }
 
   private:
@@ -893,8 +870,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -967,8 +944,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -1053,8 +1030,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-            return c == '=';
-        });
+                                 return c == '=';
+                             });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1102,8 +1079,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == ' ' || c == '\t';
-            }) != key_end)
+                             return c == ' ' || c == '\t';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -1111,8 +1088,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == '[' || c == ']';
-            }) != key_end)
+                             return c == '[' || c == ']';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1509,8 +1486,9 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-            return c == ' ' || c == '\t' || c == '#';
-        });
+                                        return c == ' ' || c == '\t'
+                                               || c == '#';
+                                    });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1526,9 +1504,10 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
-        });
+                                return !is_number(c) && c != 'T' && c != 'Z'
+                                       && c != ':' && c != '-' && c != '+'
+                                       && c != '.';
+                            });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1626,8 +1605,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-            return c == ',' || c == ']' || c == '#';
-        });
+                                        return c == ',' || c == ']' || c == '#';
+                                    });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1807,216 +1786,244 @@ inline table parse_file(const std::string& filename)
     return p.parse();
 }
 
-inline writer::writer(std::ostream& s) : stream_(s)
-{
-}
-
-inline void writer::visit(base& b, const std::vector<std::string>& p, bool in_array)
-{
-    if (b.is_value())
-    {
-        if (auto v = b.as<std::string>())
-        {
-            visit(*v, p, in_array);
-        }
-        else if (auto v = b.as<int64_t>())
-        {
-            visit(*v, p, in_array);
-        }
-        else if (auto v = b.as<double>())
-        {
-            visit(*v, p, in_array);
-        }
-        else if (auto v = b.as<cpptoml::datetime>())
-        {
-            visit(*v, p, in_array);
-        }
-        else if (auto v = b.as<bool>())
-        {
-            visit(*v, p, in_array);
-        }
-    }
-    else if (b.is_array())
-    {
-        visit(*b.as_array(), p, in_array);
-    }
-    else if (b.is_table())
-    {
-        visit(*b.as_table(), p, in_array);
-    }
-    else if (b.is_table_array())
-    {
-        visit(*b.as_table_array(), p, in_array);
-    }
-}
-
 template <class T>
-inline void writer::visit(value<T>& v, const std::vector<std::string>& p, bool in_array)
+inline void base::accept(T& visitor, const std::vector<std::string>& p,
+                         bool in_array)
 {
-    write_value_header(v, p);
-    write(v, p);
-    write_value_trailer(v, p);
+    if (is_value())
+    {
+        if (auto v = as<std::string>())
+        {
+            v->accept(visitor, p, in_array);
+        }
+        else if (auto v = as<int64_t>())
+        {
+            v->accept(visitor, p, in_array);
+        }
+        else if (auto v = as<double>())
+        {
+            v->accept(visitor, p, in_array);
+        }
+        else if (auto v = as<cpptoml::datetime>())
+        {
+            v->accept(visitor, p, in_array);
+        }
+        else if (auto v = as<bool>())
+        {
+            v->accept(visitor, p, in_array);
+        }
+    }
+    else if (is_table())
+    {
+        static_cast<table*>(this)->accept(visitor, p, in_array);
+    }
+    else if (is_array())
+    {
+        static_cast<array*>(this)->accept(visitor, p, in_array);
+    }
+    else if (is_table_array())
+    {
+        static_cast<table_array*>(this)->accept(visitor, p, in_array);
+    }
 }
 
-inline void writer::visit(array& a, const std::vector<std::string>& p, bool in_array)
-{
-    write_array_header(a, p);
-
-    for (unsigned int i = 0; i < a.get().size(); ++i)
-    {
-        if (i > 0)
-        {
-            write_array_separator(a, p);
-        }
-
-        write_array_item_header(*a.get()[i], p);
-        
-        if (a.get()[i]->is_array())
-        {
-            a.get()[i]->as_array()->accept(*this, p);
-        }
-        else
-        {
-            a.get()[i]->accept(*this, p);
-        }
-        
-        write_array_item_trailer(*a.get()[i], p);
-    }
-
-    write_array_trailer(a, p);
-}
-
-inline void writer::visit(table& t, const std::vector<std::string>& p, bool in_array)
-{
-    write_table_header(t, p, in_array);
-    std::vector<std::string> values;
-    std::vector<std::string> tables;
-
-    for (const auto& i : t)
-    {
-        if (i.second->is_table() || i.second->is_table_array())
-        {
-            tables.push_back(i.first);
-        }
-        else
-        {
-            values.push_back(i.first);
-        }
-    }
-
-    for (unsigned int i = 0; i < values.size(); ++i)
-    {
-        std::vector<std::string> path = p;
-        path.push_back(values[i]);
-
-        if (i > 0)
-        {
-            write_table_separator(t, path);
-        }
-
-        write_table_item_header(*t.get(values[i]), path);
-        t.get(values[i])->accept(*this, path);
-        write_table_item_trailer(*t.get(values[i]), path);
-    }
-
-    for (unsigned int i = 0; i < tables.size(); ++i)
-    {
-        std::vector<std::string> path = p;
-        path.push_back(tables[i]);
-
-        if (values.size() > 0 || i > 0)
-        {
-            write_table_separator(t, path);
-        }
-
-        write_table_item_header(*t.get(tables[i]), path);
-        t.get(tables[i])->accept(*this, path);
-        write_table_item_trailer(*t.get(tables[i]), path);
-    }
-
-    write_table_trailer(t, p, in_array);
-}
-
-inline void writer::visit(table_array& t, const std::vector<std::string>& p, bool in_array)
-{
-    write_table_array_header(t, p);
-
-    for (unsigned int j = 0; j < t.get().size(); ++j)
-    {
-        if (j > 0)
-        {
-            write_table_array_separator(t, p);
-        }
-
-        write_table_array_item_header(*t.get()[j], p);
-        t.get()[j]->accept(*this, p, true);
-        write_table_array_item_trailer(*t.get()[j], p);
-    }
-
-    write_table_array_trailer(t, p);
-}
-
-class toml_writer : public writer
+class toml_writer
 {
   public:
-    inline toml_writer(std::ostream& s) : writer(s), has_naked_endline_(false)
+    inline toml_writer(std::ostream& s) : stream_(s), has_naked_endline_(false)
     {
+    }
+
+  public:
+    inline void visit(value<std::string>& v, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write(v);
+    }
+
+    inline void visit(value<int64_t>& v, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write(v);
+    }
+
+    inline void visit(value<double>& v, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write(v);
+    }
+
+    inline void visit(value<datetime>& v, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write(v);
+    }
+
+    inline void visit(value<bool>& v, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write(v);
+    }
+
+    inline void visit(table& t, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write_table_header(t, p, in_array);
+        std::vector<std::string> values;
+        std::vector<std::string> tables;
+
+        for (const auto& i : t)
+        {
+            if (i.second->is_table() || i.second->is_table_array())
+            {
+                tables.push_back(i.first);
+            }
+            else
+            {
+                values.push_back(i.first);
+            }
+        }
+
+        for (unsigned int i = 0; i < values.size(); ++i)
+        {
+            std::vector<std::string> path = p;
+            path.push_back(values[i]);
+
+            if (i > 0)
+            {
+                write_table_separator(t, path);
+            }
+
+            write_table_item_header(*t.get(values[i]), path);
+            t.get(values[i])->accept(*this, path, false);
+            write_table_item_trailer(*t.get(values[i]), path);
+        }
+
+        for (unsigned int i = 0; i < tables.size(); ++i)
+        {
+            std::vector<std::string> path = p;
+            path.push_back(tables[i]);
+
+            if (values.size() > 0 || i > 0)
+            {
+                write_table_separator(t, path);
+            }
+
+            write_table_item_header(*t.get(tables[i]), path);
+            t.get(tables[i])->accept(*this, path, false);
+            write_table_item_trailer(*t.get(tables[i]), path);
+        }
+
+        write_table_trailer(t, p, in_array);
+    }
+
+    inline void visit(array& a, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write_array_header(a, p);
+
+        for (unsigned int i = 0; i < a.get().size(); ++i)
+        {
+            if (i > 0)
+            {
+                write_array_separator(a, p);
+            }
+
+            write_array_item_header(*a.get()[i], p);
+
+            if (a.get()[i]->is_array())
+            {
+                a.get()[i]->as_array()->accept(*this, p, true);
+            }
+            else
+            {
+                a.get()[i]->accept(*this, p, true);
+            }
+
+            write_array_item_trailer(*a.get()[i], p);
+        }
+
+        write_array_trailer(a, p);
+    }
+
+    inline void visit(table_array& t, const std::vector<std::string>& p,
+                      bool in_array)
+    {
+        write_table_array_header(t, p);
+
+        for (unsigned int j = 0; j < t.get().size(); ++j)
+        {
+            if (j > 0)
+            {
+                write_table_array_separator(t, p);
+            }
+
+            write_table_array_item_header(*t.get()[j], p);
+            t.get()[j]->accept(*this, p, true);
+            write_table_array_item_trailer(*t.get()[j], p);
+        }
+
+        write_table_array_trailer(t, p);
     }
 
   protected:
-    inline void write_value_header(base &b, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write(base& b, const std::vector<std::string>& p)
-    {
-        if (auto v = b.as<std::string>())
-        {
-            write("\"");
-            write(escape_string(v->get()));
-            write("\"");
-        }
-        else if (auto v = b.as<int64_t>())
-        {
-            write(v->get());
-        }
-        else if (auto v = b.as<double>())
-        {
-            write(v->get());
-        }
-        else if (auto v = b.as<cpptoml::datetime>())
-        {
-            write(v->get());
-        }
-        else if (auto v = b.as<bool>())
-        {
-            write((v->get() ? "true" : "false"));
-        }
-    }
-    
-    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
+    inline void write_value_header(base& b, const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_header(array &a, const std::vector<std::string>& p)
+    inline void write(value<std::string>& v)
+    {
+        write("\"");
+        write(escape_string(v.get()));
+        write("\"");
+    }
+
+    inline void write(value<int64_t>& v)
+    {
+        write(v.get());
+    }
+
+    inline void write(value<double>& v)
+    {
+        write(v.get());
+    }
+
+    inline void write(value<datetime>& v)
+    {
+        write(v.get());
+    }
+
+    inline void write(value<bool>& v)
+    {
+        write((v.get() ? "true" : "false"));
+    }
+
+    inline void write_value_trailer(base& b, const std::vector<std::string>& p)
+    {
+    }
+
+    inline void write_array_header(array& a, const std::vector<std::string>& p)
     {
         write("[");
     }
 
-    inline void write_array_separator(array &a, const std::vector<std::string>& p)
+    inline void write_array_separator(array& a,
+                                      const std::vector<std::string>& p)
     {
         write(", ");
     }
-    
-    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
+
+    inline void write_array_item_header(base& b,
+                                        const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
+    inline void write_array_item_trailer(base& b,
+                                         const std::vector<std::string>& p)
     {
     }
 
-    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
+    inline void write_array_trailer(array& a, const std::vector<std::string>& p)
     {
         write("]");
     }
@@ -2055,20 +2062,24 @@ class toml_writer : public writer
         }
     }
 
-    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
+    virtual void write_table_array_header(table_array& t,
+                                          const std::vector<std::string>& p)
     {
     }
 
-    inline void write_table_separator(table &t, const std::vector<std::string>& p)
+    inline void write_table_separator(table& t,
+                                      const std::vector<std::string>& p)
     {
         endline();
     }
 
-    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
+    inline void write_table_array_separator(table_array& t,
+                                            const std::vector<std::string>& p)
     {
     }
-    
-    inline void write_table_item_header(base &b, const std::vector<std::string>& p)
+
+    inline void write_table_item_header(base& b,
+                                        const std::vector<std::string>& p)
     {
         if (!b.is_table() && !b.is_table_array())
         {
@@ -2077,16 +2088,20 @@ class toml_writer : public writer
             write(" = ");
         }
     }
-    
-    inline void write_table_array_item_header(base &b, const std::vector<std::string>& p)
+
+    inline void write_table_array_item_header(base& b,
+                                              const std::vector<std::string>& p)
     {
     }
 
-    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
+    inline void write_table_item_trailer(base& b,
+                                         const std::vector<std::string>& p)
     {
     }
-    
-    inline void write_table_array_item_trailer(base &b, const std::vector< std::string> &p)
+
+    inline void
+        write_table_array_item_trailer(base& b,
+                                       const std::vector<std::string>& p)
     {
     }
 
@@ -2096,7 +2111,8 @@ class toml_writer : public writer
         endline();
     }
 
-    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
+    inline void write_table_array_trailer(table_array& t,
+                                          const std::vector<std::string>& p)
     {
         endline();
     }
@@ -2126,14 +2142,14 @@ class toml_writer : public writer
         }
         return res;
     }
-    
-    template< class T >
-    inline void write(const T &v)
+
+    template <class T>
+    inline void write(const T& v)
     {
         stream_ << v;
         has_naked_endline_ = false;
     }
-    
+
     inline void endline()
     {
         if (!has_naked_endline_)
@@ -2142,295 +2158,10 @@ class toml_writer : public writer
             has_naked_endline_ = true;
         }
     }
-    
-private:
+
+  private:
+    std::ostream& stream_;
     bool has_naked_endline_;
-};
-
-class json_writer : public writer
-{
-  public:
-    inline json_writer(std::ostream& s) : writer(s)
-    {
-    }
-
-  protected:
-    inline void write_value_header(base &b, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write(base& b, const std::vector<std::string>& p)
-    {
-        if (auto v = b.as<std::string>())
-        {
-            stream_ << "\"" << escape_string(v->get()) << "\"";
-        }
-        else if (auto v = b.as<int64_t>())
-        {
-            stream_ << v->get();
-        }
-        else if (auto v = b.as<double>())
-        {
-            stream_ << v->get();
-        }
-        else if (auto v = b.as<cpptoml::datetime>())
-        {
-            stream_ << "\"" << v->get() << "\"";
-        }
-        else if (auto v = b.as<bool>())
-        {
-            stream_ << (v->get() ? "true" : "false");
-        }
-    }
-    
-    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_array_header(array &a, const std::vector<std::string>& p)
-    {
-        stream_ << "[";
-    }
-
-    inline void write_array_separator(array &a, const std::vector<std::string>& p)
-    {
-        stream_ << ", ";
-    }
-
-    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
-    {
-        stream_ << "]";
-    }
-
-    virtual void write_table_header(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        stream_ << "{";
-    }
-
-    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
-    {
-        stream_ << "[";
-    }
-
-    inline void write_table_separator(table &t, const std::vector<std::string>& p)
-    {
-        stream_ << ", ";
-    }
-
-    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
-    {
-        stream_ << ", ";
-    }
-    
-    inline void write_table_item_header(base &b, const std::vector<std::string>& p)
-    {
-        stream_ << "\"" << p[p.size() - 1] << "\": ";
-    }
-    
-    inline void write_table_array_item_header(base &b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write_table_array_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_trailer(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        stream_ << "}";
-    }
-
-    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
-    {
-        stream_ << "]";
-    }
-
-  private:
-    inline void indent(const std::vector<std::string>& p, int offset = 0)
-    {
-        for (int i = 1; i < int(p.size()) + offset; ++i)
-        {
-            stream_ << "\t";
-        }
-    }
-
-    static inline std::string escape_string(const std::string& str)
-    {
-        std::string res;
-        for (auto it = str.begin(); it != str.end(); ++it)
-        {
-            if (*it == '\\')
-                res += "\\\\";
-            else if (*it == '"')
-                res += "\\\"";
-            else if (*it == '\n')
-                res += "\\n";
-            else
-                res += *it;
-        }
-        return res;
-    }
-};
-
-class xml_writer : public writer
-{
-  public:
-    inline xml_writer(std::ostream& s) : writer(s)
-    {
-    }
-
-  protected:
-    inline void write_value_header(base &b, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write(base& b, const std::vector<std::string>& p)
-    {
-        if (auto v = b.as<std::string>())
-        {
-            stream_ << "\"" << escape_string(v->get()) << "\"";
-        }
-        else if (auto v = b.as<int64_t>())
-        {
-            stream_ << v->get();
-        }
-        else if (auto v = b.as<double>())
-        {
-            stream_ << v->get();
-        }
-        else if (auto v = b.as<cpptoml::datetime>())
-        {
-            stream_ << "\"" << v->get() << "\"";
-        }
-        else if (auto v = b.as<bool>())
-        {
-            stream_ << (v->get() ? "true" : "false");
-        }
-    }
-    
-    inline void write_value_trailer(base &b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_array_header(array &a, const std::vector<std::string>& p)
-    {
-        stream_ << "<Array>";
-    }
-
-    inline void write_array_separator(array &a, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write_array_item_header(base &b, const std::vector<std::string>& p)
-    {
-        stream_ << "<Item>";
-    }
-
-    inline void write_array_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-        stream_ << "</Item>";
-    }
-
-    inline void write_array_trailer(array &a, const std::vector<std::string>& p)
-    {
-        stream_ << "</Array>";
-    }
-
-    virtual void write_table_header(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        stream_ << "<Table>";
-    }
-
-    virtual void write_table_array_header(table_array &t, const std::vector<std::string>& p)
-    {
-        stream_ << "<Array>";
-    }
-
-    inline void write_table_separator(table &t, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_array_separator(table_array &t, const std::vector<std::string>& p)
-    {
-    }
-    
-    inline void write_table_item_header(base &b, const std::vector<std::string>& p)
-    {
-        if (!p.empty())
-        {
-            stream_ << "<" << p[p.size() - 1] << ">";
-        }
-    }
-    
-    inline void write_table_array_item_header(base &b, const std::vector<std::string>& p)
-    {
-        stream_ << "<Item>";
-    }
-
-    inline void write_table_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-        if (!p.empty())
-        {
-            stream_ << "</" << p[p.size() - 1] << ">";
-        }
-    }
-    
-    inline void write_table_array_item_trailer(base &b, const std::vector<std::string>& p)
-    {
-        stream_ << "</Item>";
-    }
-
-    inline void write_table_trailer(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        stream_ << "</Table>";
-    }
-
-    inline void write_table_array_trailer(table_array &t, const std::vector<std::string>& p)
-    {
-        stream_ << "</Array>";
-    }
-
-  private:
-    inline void indent(const std::vector<std::string>& p, int offset = 0)
-    {
-        for (int i = 1; i < int(p.size()) + offset; ++i)
-        {
-            stream_ << "\t";
-        }
-    }
-
-    static inline std::string escape_string(const std::string& str)
-    {
-        std::string res;
-        for (auto it = str.begin(); it != str.end(); ++it)
-        {
-            if (*it == '\\')
-                res += "\\\\";
-            else if (*it == '"')
-                res += "\\\"";
-            else if (*it == '\n')
-                res += "\\n";
-            else
-                res += *it;
-        }
-        return res;
-    }
 };
 }
 #endif
