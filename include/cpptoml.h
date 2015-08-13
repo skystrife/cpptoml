@@ -138,17 +138,6 @@ class base : public std::enable_shared_from_this<base>
     }
 
     /**
-     * Converts the TOML element to a value.
-     */
-    template <class T>
-    std::shared_ptr<value<T>> as_value()
-    {
-        if (is_value())
-            return std::static_pointer_cast<value<T>>(shared_from_this());
-        return nullptr;
-    }
-
-    /**
      * Determines if the given TOML element is a table.
      */
     virtual bool is_table() const
@@ -202,21 +191,14 @@ class base : public std::enable_shared_from_this<base>
     }
 
     /**
-     * Prints the TOML element to the given stream.
-     */
-    virtual void print(std::ostream& stream) const = 0;
-
-    /**
      * Attempts to coerce the TOML element into a concrete TOML value
      * of type T.
      */
     template <class T>
     std::shared_ptr<value<T>> as();
 
-    template <class T>
-    inline void accept(T& visitor, const std::vector<std::string>& p
-                                   = std::vector<std::string>(),
-                       bool in_array = false);
+    template <class Visitor, class... Args>
+    void accept(Visitor&& visitor, Args&&... args);
 };
 
 template <class T>
@@ -265,32 +247,9 @@ class value : public base
         return data_;
     }
 
-    void print(std::ostream& stream) const override
-    {
-        stream << data_;
-    }
-
-    template <class U>
-    inline void accept(U& visitor, const std::vector<std::string>& p
-                                   = std::vector<std::string>(),
-                       bool in_array = false)
-    {
-        visitor.visit(*this, p, in_array);
-    }
-
   private:
     T data_;
 };
-
-// specializations for printing nicely
-template <>
-inline void value<bool>::print(std::ostream& stream) const
-{
-    if (data_)
-        stream << "true";
-    else
-        stream << "false";
-}
 
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
@@ -389,27 +348,6 @@ class array : public base
         return result;
     }
 
-    virtual void print(std::ostream& stream) const override
-    {
-        stream << "[ ";
-        auto it = values_.begin();
-        while (it != values_.end())
-        {
-            (*it)->print(stream);
-            if (++it != values_.end())
-                stream << ", ";
-        }
-        stream << " ]";
-    }
-
-    template <class T>
-    inline void accept(T& visitor, const std::vector<std::string>& p
-                                   = std::vector<std::string>(),
-                       bool in_array = false)
-    {
-        visitor.visit(*this, p, in_array);
-    }
-
   private:
     std::vector<std::shared_ptr<base>> values_;
 };
@@ -431,22 +369,7 @@ class table_array : public base
         return array_;
     }
 
-    void print(std::ostream& stream) const override
-    {
-        print(stream, 0, "");
-    }
-
-    template <class T>
-    inline void accept(T& visitor, const std::vector<std::string>& p
-                                   = std::vector<std::string>(),
-                       bool in_array = false)
-    {
-        visitor.visit(*this, p, in_array);
-    }
-
   private:
-    void print(std::ostream& stream, size_t depth,
-               const std::string& key) const;
     std::vector<std::shared_ptr<table>> array_;
 };
 
@@ -661,21 +584,6 @@ class table : public base
         insert(key, std::make_shared<value<T>>(val));
     }
 
-    friend std::ostream& operator<<(std::ostream& stream, const table& table);
-
-    void print(std::ostream& stream) const override
-    {
-        print(stream, 0);
-    }
-
-    template <class T>
-    inline void accept(T& visitor, const std::vector<std::string>& p
-                                   = std::vector<std::string>(),
-                       bool in_array = false)
-    {
-        visitor.visit(*this, p, in_array);
-    }
-
   private:
     std::vector<std::string> split(const std::string& value,
                                    char separator) const
@@ -724,50 +632,8 @@ class table : public base
         return true;
     }
 
-    void print(std::ostream& stream, size_t depth) const
-    {
-        for (auto& p : map_)
-        {
-            if (p.second->is_table_array())
-            {
-                auto ga = std::dynamic_pointer_cast<table_array>(p.second);
-                ga->print(stream, depth, p.first);
-            }
-            else
-            {
-                stream << std::string(depth, '\t') << p.first << " = ";
-                if (p.second->is_table())
-                {
-                    auto g = static_cast<table*>(p.second.get());
-                    stream << '\n';
-                    g->print(stream, depth + 1);
-                }
-                else
-                {
-                    p.second->print(stream);
-                    stream << '\n';
-                }
-            }
-        }
-    }
     string_to_base_map map_;
 };
-
-inline void table_array::print(std::ostream& stream, size_t depth,
-                               const std::string& key) const
-{
-    for (auto g : array_)
-    {
-        stream << std::string(depth, '\t') << "[[" << key << "]]\n";
-        g->print(stream, depth + 1);
-    }
-}
-
-inline std::ostream& operator<<(std::ostream& stream, const table& table)
-{
-    table.print(stream);
-    return stream;
-}
 
 /**
  * Exception class for all TOML parsing errors.
@@ -1786,89 +1652,114 @@ inline table parse_file(const std::string& filename)
     return p.parse();
 }
 
-template <class T>
-inline void base::accept(T& visitor, const std::vector<std::string>& p,
-                         bool in_array)
+/**
+ * base implementation of accept() that calls visitor.visit() on the concrete
+ * class.
+ */
+template <class Visitor, class... Args>
+void base::accept(Visitor&& visitor, Args&&... args)
 {
     if (is_value())
     {
         if (auto v = as<std::string>())
         {
-            v->accept(visitor, p, in_array);
+            visitor.visit(*v, std::forward<Args>(args)...);
         }
         else if (auto v = as<int64_t>())
         {
-            v->accept(visitor, p, in_array);
+            visitor.visit(*v, std::forward<Args>(args)...);
         }
         else if (auto v = as<double>())
         {
-            v->accept(visitor, p, in_array);
+            visitor.visit(*v, std::forward<Args>(args)...);
         }
         else if (auto v = as<cpptoml::datetime>())
         {
-            v->accept(visitor, p, in_array);
+            visitor.visit(*v, std::forward<Args>(args)...);
         }
         else if (auto v = as<bool>())
         {
-            v->accept(visitor, p, in_array);
+            visitor.visit(*v, std::forward<Args>(args)...);
         }
     }
     else if (is_table())
     {
-        static_cast<table*>(this)->accept(visitor, p, in_array);
+        visitor.visit(static_cast<table&>(*this), std::forward<Args>(args)...);
     }
     else if (is_array())
     {
-        static_cast<array*>(this)->accept(visitor, p, in_array);
+        visitor.visit(static_cast<array&>(*this), std::forward<Args>(args)...);
     }
     else if (is_table_array())
     {
-        static_cast<table_array*>(this)->accept(visitor, p, in_array);
+        visitor.visit(static_cast<table_array&>(*this),
+                      std::forward<Args>(args)...);
     }
 }
 
+
+/**
+ * Writer that can be passed to accept() functions of cpptoml objects and
+ * will output valid TOML to a stream.
+ */
 class toml_writer
 {
   public:
-    inline toml_writer(std::ostream& s) : stream_(s), has_naked_endline_(false)
+    /**
+     * Construct a toml_writer that will write to the given stream
+     */
+    toml_writer(std::ostream& s) : stream_(s), has_naked_endline_(false)
     {
+        // nothing
     }
 
   public:
-    inline void visit(value<std::string>& v, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a string element of the TOML tree
+     */
+    void visit(value<std::string>& v, bool = false)
     {
         write(v);
     }
 
-    inline void visit(value<int64_t>& v, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output an integer element of the TOML tree
+     */
+    void visit(value<int64_t>& v, bool = false)
     {
         write(v);
     }
 
-    inline void visit(value<double>& v, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a double element of the TOML tree
+     */
+    void visit(value<double>& v, bool = false)
     {
         write(v);
     }
 
-    inline void visit(value<datetime>& v, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a datetime element of the TOML tree
+     */
+    void visit(value<datetime>& v, bool = false)
     {
         write(v);
     }
 
-    inline void visit(value<bool>& v, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a boolean element of the TOML tree
+     */
+    void visit(value<bool>& v, bool = false)
     {
         write(v);
     }
 
-    inline void visit(table& t, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a table element of the TOML tree
+     */
+    void visit(table& t, bool in_array = false)
     {
-        write_table_header(t, p, in_array);
+        write_table_header(in_array);
         std::vector<std::string> values;
         std::vector<std::string> tables;
 
@@ -1886,154 +1777,123 @@ class toml_writer
 
         for (unsigned int i = 0; i < values.size(); ++i)
         {
-            std::vector<std::string> path = p;
-            path.push_back(values[i]);
+            path_.push_back(values[i]);
 
             if (i > 0)
-            {
-                write_table_separator(t, path);
-            }
+                endline();
 
-            write_table_item_header(*t.get(values[i]), path);
-            t.get(values[i])->accept(*this, path, false);
-            write_table_item_trailer(*t.get(values[i]), path);
+            write_table_item_header(*t.get(values[i]));
+            t.get(values[i])->accept(*this, false);
+            path_.pop_back();
         }
 
         for (unsigned int i = 0; i < tables.size(); ++i)
         {
-            std::vector<std::string> path = p;
-            path.push_back(tables[i]);
+            path_.push_back(tables[i]);
 
             if (values.size() > 0 || i > 0)
-            {
-                write_table_separator(t, path);
-            }
+                endline();
 
-            write_table_item_header(*t.get(tables[i]), path);
-            t.get(tables[i])->accept(*this, path, false);
-            write_table_item_trailer(*t.get(tables[i]), path);
+            write_table_item_header(*t.get(tables[i]));
+            t.get(tables[i])->accept(*this, false);
+            path_.pop_back();
         }
 
-        write_table_trailer(t, p, in_array);
+        endline();
     }
 
-    inline void visit(array& a, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output an array element of the TOML tree
+     */
+    void visit(array& a, bool = false)
     {
-        write_array_header(a, p);
+        write("[");
 
         for (unsigned int i = 0; i < a.get().size(); ++i)
         {
             if (i > 0)
-            {
-                write_array_separator(a, p);
-            }
-
-            write_array_item_header(*a.get()[i], p);
+                write(", ");
 
             if (a.get()[i]->is_array())
             {
-                a.get()[i]->as_array()->accept(*this, p, true);
+                a.get()[i]->as_array()->accept(*this, true);
             }
             else
             {
-                a.get()[i]->accept(*this, p, true);
+                a.get()[i]->accept(*this, true);
             }
-
-            write_array_item_trailer(*a.get()[i], p);
         }
 
-        write_array_trailer(a, p);
+        write("]");
     }
 
-    inline void visit(table_array& t, const std::vector<std::string>& p,
-                      bool in_array)
+    /**
+     * Output a table_array element of the TOML tree
+     */
+    void visit(table_array& t, bool = false)
     {
-        write_table_array_header(t, p);
-
         for (unsigned int j = 0; j < t.get().size(); ++j)
         {
             if (j > 0)
-            {
-                write_table_array_separator(t, p);
-            }
+                endline();
 
-            write_table_array_item_header(*t.get()[j], p);
-            t.get()[j]->accept(*this, p, true);
-            write_table_array_item_trailer(*t.get()[j], p);
+            t.get()[j]->accept(*this, true);
         }
 
-        write_table_array_trailer(t, p);
+        endline();
     }
 
   protected:
-    inline void write_value_header(base& b, const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write(value<std::string>& v)
+    /**
+     * Write out a string.
+     */
+    void write(value<std::string>& v)
     {
         write("\"");
         write(escape_string(v.get()));
         write("\"");
     }
 
-    inline void write(value<int64_t>& v)
+    /**
+     * Write out an integer.
+     */
+    void write(value<int64_t>& v)
     {
         write(v.get());
     }
 
-    inline void write(value<double>& v)
+    /**
+     * Write out a double.
+     */
+    void write(value<double>& v)
     {
         write(v.get());
     }
 
-    inline void write(value<datetime>& v)
+    /**
+     * Write out a datetime.
+     */
+    void write(value<datetime>& v)
     {
         write(v.get());
     }
 
-    inline void write(value<bool>& v)
+    /**
+     * Write out a boolean.
+     */
+    void write(value<bool>& v)
     {
         write((v.get() ? "true" : "false"));
     }
 
-    inline void write_value_trailer(base& b, const std::vector<std::string>& p)
+    /**
+     * Write out the header of a table.
+     */
+    void write_table_header(bool in_array = false)
     {
-    }
-
-    inline void write_array_header(array& a, const std::vector<std::string>& p)
-    {
-        write("[");
-    }
-
-    inline void write_array_separator(array& a,
-                                      const std::vector<std::string>& p)
-    {
-        write(", ");
-    }
-
-    inline void write_array_item_header(base& b,
-                                        const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_array_item_trailer(base& b,
-                                         const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_array_trailer(array& a, const std::vector<std::string>& p)
-    {
-        write("]");
-    }
-
-    virtual void write_table_header(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        if (!p.empty())
+        if (!path_.empty())
         {
-            indent(int(p.size()) - 1);
+            indent();
 
             write("[");
 
@@ -2042,14 +1902,14 @@ class toml_writer
                 write("[");
             }
 
-            for (unsigned int i = 0; i < p.size(); ++i)
+            for (unsigned int i = 0; i < path_.size(); ++i)
             {
                 if (i > 0)
                 {
                     write(".");
                 }
 
-                write(p[i]);
+                write(path_[i]);
             }
 
             if (in_array)
@@ -2062,71 +1922,34 @@ class toml_writer
         }
     }
 
-    virtual void write_table_array_header(table_array& t,
-                                          const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_separator(table& t,
-                                      const std::vector<std::string>& p)
-    {
-        endline();
-    }
-
-    inline void write_table_array_separator(table_array& t,
-                                            const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_item_header(base& b,
-                                        const std::vector<std::string>& p)
+    /**
+     * Write out the identifier for an item in a table.
+     */
+    void write_table_item_header(base& b)
     {
         if (!b.is_table() && !b.is_table_array())
         {
-            indent(int(p.size()) - 1);
-            write(p[p.size() - 1]);
+            indent();
+            write(path_.back());
             write(" = ");
         }
     }
 
-    inline void write_table_array_item_header(base& b,
-                                              const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_item_trailer(base& b,
-                                         const std::vector<std::string>& p)
-    {
-    }
-
-    inline void
-        write_table_array_item_trailer(base& b,
-                                       const std::vector<std::string>& p)
-    {
-    }
-
-    inline void write_table_trailer(table& t, const std::vector<std::string>& p,
-                                    bool in_array = false)
-    {
-        endline();
-    }
-
-    inline void write_table_array_trailer(table_array& t,
-                                          const std::vector<std::string>& p)
-    {
-        endline();
-    }
-
   private:
-    inline void indent(int depth)
+    /**
+     * Indent the proper number of tabs given the size of
+     * the path.
+     */
+    void indent()
     {
-        for (int i = 0; i < depth; ++i)
-        {
+        for (std::size_t i = 1; i < path_.size(); ++i)
             write("\t");
-        }
     }
 
-    static inline std::string escape_string(const std::string& str)
+    /**
+     * Escape a string for output.
+     */
+    static std::string escape_string(const std::string& str)
     {
         std::string res;
         for (auto it = str.begin(); it != str.end(); ++it)
@@ -2143,14 +1966,20 @@ class toml_writer
         return res;
     }
 
+    /**
+     * Write a value out to the stream.
+     */
     template <class T>
-    inline void write(const T& v)
+    void write(const T& v)
     {
         stream_ << v;
         has_naked_endline_ = false;
     }
 
-    inline void endline()
+    /**
+     * Write an endline out to the stream
+     */
+    void endline()
     {
         if (!has_naked_endline_)
         {
@@ -2161,7 +1990,45 @@ class toml_writer
 
   private:
     std::ostream& stream_;
+    std::vector<std::string> path_;
     bool has_naked_endline_;
 };
+
+std::ostream &operator<<(std::ostream& stream, base& b)
+{
+    toml_writer writer{stream};
+    b.accept(writer);
+    return stream;
+}
+
+template< class T >
+std::ostream &operator<<(std::ostream& stream, value< T >& v)
+{
+    toml_writer writer{stream};
+    v.accept(writer);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream& stream, table& t)
+{
+    toml_writer writer{stream};
+    t.accept(writer);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream& stream, table_array& t)
+{
+    toml_writer writer{stream};
+    t.accept(writer);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream& stream, array& a)
+{
+    toml_writer writer{stream};
+    a.accept(writer);
+    return stream;
+}
+
 }
 #endif

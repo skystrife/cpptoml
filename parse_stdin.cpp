@@ -42,7 +42,7 @@ void print_value(std::ostream& o, const std::shared_ptr<cpptoml::base>& base)
     else if (auto v = base->as<bool>())
     {
         o << "{\"type\":\"bool\",\"value\":\"";
-        v->print(o);
+        o << (*v);
         o << "\"}";
     }
 }
