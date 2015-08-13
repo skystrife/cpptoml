@@ -1697,7 +1697,6 @@ void base::accept(Visitor&& visitor, Args&&... args)
     }
 }
 
-
 /**
  * Writer that can be passed to accept() functions of cpptoml objects and
  * will output valid TOML to a stream.
@@ -1994,41 +1993,40 @@ class toml_writer
     bool has_naked_endline_;
 };
 
-std::ostream &operator<<(std::ostream& stream, base& b)
+std::ostream& operator<<(std::ostream& stream, base& b)
 {
     toml_writer writer{stream};
     b.accept(writer);
     return stream;
 }
 
-template< class T >
-std::ostream &operator<<(std::ostream& stream, value< T >& v)
+template <class T>
+std::ostream& operator<<(std::ostream& stream, value<T>& v)
 {
     toml_writer writer{stream};
     v.accept(writer);
     return stream;
 }
 
-std::ostream &operator<<(std::ostream& stream, table& t)
+std::ostream& operator<<(std::ostream& stream, table& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-std::ostream &operator<<(std::ostream& stream, table_array& t)
+std::ostream& operator<<(std::ostream& stream, table_array& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-std::ostream &operator<<(std::ostream& stream, array& a)
+std::ostream& operator<<(std::ostream& stream, array& a)
 {
     toml_writer writer{stream};
     a.accept(writer);
     return stream;
 }
-
 }
 #endif
