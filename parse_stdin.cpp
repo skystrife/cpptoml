@@ -32,33 +32,33 @@ class toml_test_writer
         // nothing
     }
 
-    void visit(cpptoml::value<std::string>& v)
+    void visit(const cpptoml::value<std::string>& v)
     {
         stream_ << "{\"type\":\"string\",\"value\":\"" << escape_string(v.get())
                 << "\"}";
     }
 
-    void visit(cpptoml::value<int64_t>& v)
+    void visit(const cpptoml::value<int64_t>& v)
     {
         stream_ << "{\"type\":\"integer\",\"value\":\"" << v.get() << "\"}";
     }
 
-    void visit(cpptoml::value<double>& v)
+    void visit(const cpptoml::value<double>& v)
     {
         stream_ << "{\"type\":\"float\",\"value\":\"" << v.get() << "\"}";
     }
 
-    void visit(cpptoml::value<cpptoml::datetime>& v)
+    void visit(const cpptoml::value<cpptoml::datetime>& v)
     {
         stream_ << "{\"type\":\"datetime\",\"value\":\"" << v.get() << "\"}";
     }
 
-    void visit(cpptoml::value<bool>& v)
+    void visit(const cpptoml::value<bool>& v)
     {
         stream_ << "{\"type\":\"bool\",\"value\":\"" << v << "\"}";
     }
 
-    void visit(cpptoml::array& arr)
+    void visit(const cpptoml::array& arr)
     {
         stream_ << "{\"type\":\"array\",\"value\":[";
         auto it = arr.get().begin();
@@ -71,7 +71,7 @@ class toml_test_writer
         stream_ << "]}";
     }
 
-    void visit(cpptoml::table_array& tarr)
+    void visit(const cpptoml::table_array& tarr)
     {
         stream_ << "[";
         auto arr = tarr.get();
@@ -85,7 +85,7 @@ class toml_test_writer
         stream_ << "]";
     }
 
-    void visit(cpptoml::table& t)
+    void visit(const cpptoml::table& t)
     {
         stream_ << "{";
         auto it = t.begin();

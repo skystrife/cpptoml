@@ -196,9 +196,12 @@ class base : public std::enable_shared_from_this<base>
      */
     template <class T>
     std::shared_ptr<value<T>> as();
+    
+    template <class T>
+    std::shared_ptr<const value<T>> as() const;
 
     template <class Visitor, class... Args>
-    void accept(Visitor&& visitor, Args&&... args);
+    void accept(Visitor&& visitor, Args&&... args) const;
 };
 
 template <class T>
@@ -269,6 +272,28 @@ inline std::shared_ptr<value<double>> base::as()
 
     if (auto v = std::dynamic_pointer_cast<value<int64_t>>(shared_from_this()))
         return std::make_shared<value<double>>(v->get());
+
+    return nullptr;
+}
+
+template <class T>
+inline std::shared_ptr<const value<T>> base::as() const
+{
+    if (auto v = std::dynamic_pointer_cast<const value<T>>(shared_from_this()))
+        return v;
+    return nullptr;
+}
+
+// special case value<double> to allow getting an integer parameter as a
+// double value
+template <>
+inline std::shared_ptr<const value<double>> base::as() const
+{
+    if (auto v = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
+        return v;
+
+    if (auto v = std::dynamic_pointer_cast<const value<int64_t>>(shared_from_this()))
+        return std::make_shared<const value<double>>(v->get());
 
     return nullptr;
 }
@@ -365,6 +390,11 @@ class table_array : public base
     }
 
     std::vector<std::shared_ptr<table>>& get()
+    {
+        return array_;
+    }
+    
+    const std::vector< std::shared_ptr< table>>& get() const
     {
         return array_;
     }
@@ -1657,7 +1687,7 @@ inline table parse_file(const std::string& filename)
  * class.
  */
 template <class Visitor, class... Args>
-void base::accept(Visitor&& visitor, Args&&... args)
+void base::accept(Visitor&& visitor, Args&&... args) const
 {
     if (is_value())
     {
@@ -1684,15 +1714,15 @@ void base::accept(Visitor&& visitor, Args&&... args)
     }
     else if (is_table())
     {
-        visitor.visit(static_cast<table&>(*this), std::forward<Args>(args)...);
+        visitor.visit(static_cast<const table&>(*this), std::forward<Args>(args)...);
     }
     else if (is_array())
     {
-        visitor.visit(static_cast<array&>(*this), std::forward<Args>(args)...);
+        visitor.visit(static_cast<const array&>(*this), std::forward<Args>(args)...);
     }
     else if (is_table_array())
     {
-        visitor.visit(static_cast<table_array&>(*this),
+        visitor.visit(static_cast<const table_array&>(*this),
                       std::forward<Args>(args)...);
     }
 }
@@ -1716,7 +1746,7 @@ class toml_writer
     /**
      * Output a string element of the TOML tree
      */
-    void visit(value<std::string>& v, bool = false)
+    void visit(const value<std::string>& v, bool = false)
     {
         write(v);
     }
@@ -1724,7 +1754,7 @@ class toml_writer
     /**
      * Output an integer element of the TOML tree
      */
-    void visit(value<int64_t>& v, bool = false)
+    void visit(const value<int64_t>& v, bool = false)
     {
         write(v);
     }
@@ -1732,7 +1762,7 @@ class toml_writer
     /**
      * Output a double element of the TOML tree
      */
-    void visit(value<double>& v, bool = false)
+    void visit(const value<double>& v, bool = false)
     {
         write(v);
     }
@@ -1740,7 +1770,7 @@ class toml_writer
     /**
      * Output a datetime element of the TOML tree
      */
-    void visit(value<datetime>& v, bool = false)
+    void visit(const value<datetime>& v, bool = false)
     {
         write(v);
     }
@@ -1748,7 +1778,7 @@ class toml_writer
     /**
      * Output a boolean element of the TOML tree
      */
-    void visit(value<bool>& v, bool = false)
+    void visit(const value<bool>& v, bool = false)
     {
         write(v);
     }
@@ -1756,7 +1786,7 @@ class toml_writer
     /**
      * Output a table element of the TOML tree
      */
-    void visit(table& t, bool in_array = false)
+    void visit(const table& t, bool in_array = false)
     {
         write_table_header(in_array);
         std::vector<std::string> values;
@@ -1804,7 +1834,7 @@ class toml_writer
     /**
      * Output an array element of the TOML tree
      */
-    void visit(array& a, bool = false)
+    void visit(const array& a, bool = false)
     {
         write("[");
 
@@ -1829,7 +1859,7 @@ class toml_writer
     /**
      * Output a table_array element of the TOML tree
      */
-    void visit(table_array& t, bool = false)
+    void visit(const table_array& t, bool = false)
     {
         for (unsigned int j = 0; j < t.get().size(); ++j)
         {
@@ -1846,7 +1876,7 @@ class toml_writer
     /**
      * Write out a string.
      */
-    void write(value<std::string>& v)
+    void write(const value<std::string>& v)
     {
         write("\"");
         write(escape_string(v.get()));
@@ -1856,7 +1886,7 @@ class toml_writer
     /**
      * Write out an integer.
      */
-    void write(value<int64_t>& v)
+    void write(const value<int64_t>& v)
     {
         write(v.get());
     }
@@ -1864,7 +1894,7 @@ class toml_writer
     /**
      * Write out a double.
      */
-    void write(value<double>& v)
+    void write(const value<double>& v)
     {
         write(v.get());
     }
@@ -1872,7 +1902,7 @@ class toml_writer
     /**
      * Write out a datetime.
      */
-    void write(value<datetime>& v)
+    void write(const value<datetime>& v)
     {
         write(v.get());
     }
@@ -1880,7 +1910,7 @@ class toml_writer
     /**
      * Write out a boolean.
      */
-    void write(value<bool>& v)
+    void write(const value<bool>& v)
     {
         write((v.get() ? "true" : "false"));
     }
@@ -1924,7 +1954,7 @@ class toml_writer
     /**
      * Write out the identifier for an item in a table.
      */
-    void write_table_item_header(base& b)
+    void write_table_item_header(const base& b)
     {
         if (!b.is_table() && !b.is_table_array())
         {
@@ -1993,7 +2023,7 @@ class toml_writer
     bool has_naked_endline_;
 };
 
-inline std::ostream& operator<<(std::ostream& stream, base& b)
+inline std::ostream& operator<<(std::ostream& stream, const base& b)
 {
     toml_writer writer{stream};
     b.accept(writer);
@@ -2001,28 +2031,28 @@ inline std::ostream& operator<<(std::ostream& stream, base& b)
 }
 
 template <class T>
-std::ostream& operator<<(std::ostream& stream, value<T>& v)
+std::ostream& operator<<(std::ostream& stream, const value<T>& v)
 {
     toml_writer writer{stream};
     v.accept(writer);
     return stream;
 }
 
-inline std::ostream& operator<<(std::ostream& stream, table& t)
+inline std::ostream& operator<<(std::ostream& stream, const table& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-inline std::ostream& operator<<(std::ostream& stream, table_array& t)
+inline std::ostream& operator<<(std::ostream& stream, const table_array& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-inline std::ostream& operator<<(std::ostream& stream, array& a)
+inline std::ostream& operator<<(std::ostream& stream, const array& a)
 {
     toml_writer writer{stream};
     a.accept(writer);
