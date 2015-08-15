@@ -29,16 +29,17 @@
 
 namespace cpptoml
 {
-
-    class base;                 // forward declaration
+class writer; // forward declaration
+class base;   // forward declaration
 #if defined(CPPTOML_USE_MAP)
-    // a std::map will ensure that entries a sorted, albeit at a slight
-    // performance penalty relative to the (default) unordered_map
-    using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
+// a std::map will ensure that entries a sorted, albeit at a slight
+// performance penalty relative to the (default) unordered_map
+using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
 #else
-    // by default an unordered_map is used for best performance as the
-    // toml specification does not require entries to be sorted
-    using string_to_base_map = std::unordered_map<std::string, std::shared_ptr<base>>;
+// by default an unordered_map is used for best performance as the
+// toml specification does not require entries to be sorted
+using string_to_base_map
+    = std::unordered_map<std::string, std::shared_ptr<base>>;
 #endif
 
 template <class T>
@@ -190,16 +191,14 @@ class base : public std::enable_shared_from_this<base>
     }
 
     /**
-     * Prints the TOML element to the given stream.
-     */
-    virtual void print(std::ostream& stream) const = 0;
-
-    /**
      * Attempts to coerce the TOML element into a concrete TOML value
      * of type T.
      */
     template <class T>
     std::shared_ptr<value<T>> as();
+
+    template <class Visitor, class... Args>
+    void accept(Visitor&& visitor, Args&&... args);
 };
 
 template <class T>
@@ -248,24 +247,9 @@ class value : public base
         return data_;
     }
 
-    void print(std::ostream& stream) const override
-    {
-        stream << data_;
-    }
-
   private:
     T data_;
 };
-
-// specializations for printing nicely
-template <>
-inline void value<bool>::print(std::ostream& stream) const
-{
-    if (data_)
-        stream << "true";
-    else
-        stream << "false";
-}
 
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
@@ -339,8 +323,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            return v->as<T>();
-        });
+                           return v->as<T>();
+                       });
 
         return result;
     }
@@ -356,25 +340,12 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            if (v->is_array())
-                return std::static_pointer_cast<array>(v);
-            return std::shared_ptr<array>{};
-        });
+                           if (v->is_array())
+                               return std::static_pointer_cast<array>(v);
+                           return std::shared_ptr<array>{};
+                       });
 
         return result;
-    }
-
-    virtual void print(std::ostream& stream) const override
-    {
-        stream << "[ ";
-        auto it = values_.begin();
-        while (it != values_.end())
-        {
-            (*it)->print(stream);
-            if (++it != values_.end())
-                stream << ", ";
-        }
-        stream << " ]";
     }
 
   private:
@@ -398,14 +369,7 @@ class table_array : public base
         return array_;
     }
 
-    void print(std::ostream& stream) const override
-    {
-        print(stream, 0, "");
-    }
-
   private:
-    void print(std::ostream& stream, size_t depth,
-               const std::string& key) const;
     std::vector<std::shared_ptr<table>> array_;
 };
 
@@ -620,13 +584,6 @@ class table : public base
         insert(key, std::make_shared<value<T>>(val));
     }
 
-    friend std::ostream& operator<<(std::ostream& stream, const table& table);
-
-    void print(std::ostream& stream) const override
-    {
-        print(stream, 0);
-    }
-
   private:
     std::vector<std::string> split(const std::string& value,
                                    char separator) const
@@ -675,50 +632,8 @@ class table : public base
         return true;
     }
 
-    void print(std::ostream& stream, size_t depth) const
-    {
-        for (auto& p : map_)
-        {
-            if (p.second->is_table_array())
-            {
-                auto ga = std::dynamic_pointer_cast<table_array>(p.second);
-                ga->print(stream, depth, p.first);
-            }
-            else
-            {
-                stream << std::string(depth, '\t') << p.first << " = ";
-                if (p.second->is_table())
-                {
-                    auto g = static_cast<table*>(p.second.get());
-                    stream << '\n';
-                    g->print(stream, depth + 1);
-                }
-                else
-                {
-                    p.second->print(stream);
-                    stream << '\n';
-                }
-            }
-        }
-    }
     string_to_base_map map_;
 };
-
-inline void table_array::print(std::ostream& stream, size_t depth,
-                               const std::string& key) const
-{
-    for (auto g : array_)
-    {
-        stream << std::string(depth, '\t') << "[[" << key << "]]\n";
-        g->print(stream, depth + 1);
-    }
-}
-
-inline std::ostream& operator<<(std::ostream& stream, const table& table)
-{
-    table.print(stream);
-    return stream;
-}
 
 /**
  * Exception class for all TOML parsing errors.
@@ -821,8 +736,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -895,8 +810,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -981,8 +896,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-            return c == '=';
-        });
+                                 return c == '=';
+                             });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1030,8 +945,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == ' ' || c == '\t';
-            }) != key_end)
+                             return c == ' ' || c == '\t';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -1039,8 +954,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                return c == '[' || c == ']';
-            }) != key_end)
+                             return c == '[' || c == ']';
+                         }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1437,8 +1352,9 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-            return c == ' ' || c == '\t' || c == '#';
-        });
+                                        return c == ' ' || c == '\t'
+                                               || c == '#';
+                                    });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1454,9 +1370,10 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
-        });
+                                return !is_number(c) && c != 'T' && c != 'Z'
+                                       && c != ':' && c != '-' && c != '+'
+                                       && c != '.';
+                            });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1554,8 +1471,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-            return c == ',' || c == ']' || c == '#';
-        });
+                                        return c == ',' || c == ']' || c == '#';
+                                    });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1733,6 +1650,383 @@ inline table parse_file(const std::string& filename)
         throw parse_exception{filename + " could not be opened for parsing"};
     parser p{file};
     return p.parse();
+}
+
+/**
+ * base implementation of accept() that calls visitor.visit() on the concrete
+ * class.
+ */
+template <class Visitor, class... Args>
+void base::accept(Visitor&& visitor, Args&&... args)
+{
+    if (is_value())
+    {
+        if (auto v = as<std::string>())
+        {
+            visitor.visit(*v, std::forward<Args>(args)...);
+        }
+        else if (auto v = as<int64_t>())
+        {
+            visitor.visit(*v, std::forward<Args>(args)...);
+        }
+        else if (auto v = as<double>())
+        {
+            visitor.visit(*v, std::forward<Args>(args)...);
+        }
+        else if (auto v = as<cpptoml::datetime>())
+        {
+            visitor.visit(*v, std::forward<Args>(args)...);
+        }
+        else if (auto v = as<bool>())
+        {
+            visitor.visit(*v, std::forward<Args>(args)...);
+        }
+    }
+    else if (is_table())
+    {
+        visitor.visit(static_cast<table&>(*this), std::forward<Args>(args)...);
+    }
+    else if (is_array())
+    {
+        visitor.visit(static_cast<array&>(*this), std::forward<Args>(args)...);
+    }
+    else if (is_table_array())
+    {
+        visitor.visit(static_cast<table_array&>(*this),
+                      std::forward<Args>(args)...);
+    }
+}
+
+/**
+ * Writer that can be passed to accept() functions of cpptoml objects and
+ * will output valid TOML to a stream.
+ */
+class toml_writer
+{
+  public:
+    /**
+     * Construct a toml_writer that will write to the given stream
+     */
+    toml_writer(std::ostream& s) : stream_(s), has_naked_endline_(false)
+    {
+        // nothing
+    }
+
+  public:
+    /**
+     * Output a string element of the TOML tree
+     */
+    void visit(value<std::string>& v, bool = false)
+    {
+        write(v);
+    }
+
+    /**
+     * Output an integer element of the TOML tree
+     */
+    void visit(value<int64_t>& v, bool = false)
+    {
+        write(v);
+    }
+
+    /**
+     * Output a double element of the TOML tree
+     */
+    void visit(value<double>& v, bool = false)
+    {
+        write(v);
+    }
+
+    /**
+     * Output a datetime element of the TOML tree
+     */
+    void visit(value<datetime>& v, bool = false)
+    {
+        write(v);
+    }
+
+    /**
+     * Output a boolean element of the TOML tree
+     */
+    void visit(value<bool>& v, bool = false)
+    {
+        write(v);
+    }
+
+    /**
+     * Output a table element of the TOML tree
+     */
+    void visit(table& t, bool in_array = false)
+    {
+        write_table_header(in_array);
+        std::vector<std::string> values;
+        std::vector<std::string> tables;
+
+        for (const auto& i : t)
+        {
+            if (i.second->is_table() || i.second->is_table_array())
+            {
+                tables.push_back(i.first);
+            }
+            else
+            {
+                values.push_back(i.first);
+            }
+        }
+
+        for (unsigned int i = 0; i < values.size(); ++i)
+        {
+            path_.push_back(values[i]);
+
+            if (i > 0)
+                endline();
+
+            write_table_item_header(*t.get(values[i]));
+            t.get(values[i])->accept(*this, false);
+            path_.pop_back();
+        }
+
+        for (unsigned int i = 0; i < tables.size(); ++i)
+        {
+            path_.push_back(tables[i]);
+
+            if (values.size() > 0 || i > 0)
+                endline();
+
+            write_table_item_header(*t.get(tables[i]));
+            t.get(tables[i])->accept(*this, false);
+            path_.pop_back();
+        }
+
+        endline();
+    }
+
+    /**
+     * Output an array element of the TOML tree
+     */
+    void visit(array& a, bool = false)
+    {
+        write("[");
+
+        for (unsigned int i = 0; i < a.get().size(); ++i)
+        {
+            if (i > 0)
+                write(", ");
+
+            if (a.get()[i]->is_array())
+            {
+                a.get()[i]->as_array()->accept(*this, true);
+            }
+            else
+            {
+                a.get()[i]->accept(*this, true);
+            }
+        }
+
+        write("]");
+    }
+
+    /**
+     * Output a table_array element of the TOML tree
+     */
+    void visit(table_array& t, bool = false)
+    {
+        for (unsigned int j = 0; j < t.get().size(); ++j)
+        {
+            if (j > 0)
+                endline();
+
+            t.get()[j]->accept(*this, true);
+        }
+
+        endline();
+    }
+
+  protected:
+    /**
+     * Write out a string.
+     */
+    void write(value<std::string>& v)
+    {
+        write("\"");
+        write(escape_string(v.get()));
+        write("\"");
+    }
+
+    /**
+     * Write out an integer.
+     */
+    void write(value<int64_t>& v)
+    {
+        write(v.get());
+    }
+
+    /**
+     * Write out a double.
+     */
+    void write(value<double>& v)
+    {
+        write(v.get());
+    }
+
+    /**
+     * Write out a datetime.
+     */
+    void write(value<datetime>& v)
+    {
+        write(v.get());
+    }
+
+    /**
+     * Write out a boolean.
+     */
+    void write(value<bool>& v)
+    {
+        write((v.get() ? "true" : "false"));
+    }
+
+    /**
+     * Write out the header of a table.
+     */
+    void write_table_header(bool in_array = false)
+    {
+        if (!path_.empty())
+        {
+            indent();
+
+            write("[");
+
+            if (in_array)
+            {
+                write("[");
+            }
+
+            for (unsigned int i = 0; i < path_.size(); ++i)
+            {
+                if (i > 0)
+                {
+                    write(".");
+                }
+
+                write(path_[i]);
+            }
+
+            if (in_array)
+            {
+                write("]");
+            }
+
+            write("]");
+            endline();
+        }
+    }
+
+    /**
+     * Write out the identifier for an item in a table.
+     */
+    void write_table_item_header(base& b)
+    {
+        if (!b.is_table() && !b.is_table_array())
+        {
+            indent();
+            write(path_.back());
+            write(" = ");
+        }
+    }
+
+  private:
+    /**
+     * Indent the proper number of tabs given the size of
+     * the path.
+     */
+    void indent()
+    {
+        for (std::size_t i = 1; i < path_.size(); ++i)
+            write("\t");
+    }
+
+    /**
+     * Escape a string for output.
+     */
+    static std::string escape_string(const std::string& str)
+    {
+        std::string res;
+        for (auto it = str.begin(); it != str.end(); ++it)
+        {
+            if (*it == '\\')
+                res += "\\\\";
+            else if (*it == '"')
+                res += "\\\"";
+            else if (*it == '\n')
+                res += "\\n";
+            else
+                res += *it;
+        }
+        return res;
+    }
+
+    /**
+     * Write a value out to the stream.
+     */
+    template <class T>
+    void write(const T& v)
+    {
+        stream_ << v;
+        has_naked_endline_ = false;
+    }
+
+    /**
+     * Write an endline out to the stream
+     */
+    void endline()
+    {
+        if (!has_naked_endline_)
+        {
+            stream_ << "\n";
+            has_naked_endline_ = true;
+        }
+    }
+
+  private:
+    std::ostream& stream_;
+    std::vector<std::string> path_;
+    bool has_naked_endline_;
+};
+
+std::ostream& operator<<(std::ostream& stream, base& b)
+{
+    toml_writer writer{stream};
+    b.accept(writer);
+    return stream;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& stream, value<T>& v)
+{
+    toml_writer writer{stream};
+    v.accept(writer);
+    return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream, table& t)
+{
+    toml_writer writer{stream};
+    t.accept(writer);
+    return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream, table_array& t)
+{
+    toml_writer writer{stream};
+    t.accept(writer);
+    return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream, array& a)
+{
+    toml_writer writer{stream};
+    a.accept(writer);
+    return stream;
 }
 }
 #endif
