@@ -7,6 +7,8 @@ include(CheckCXXSourceRuns)
 
 option(USE_LIBCXX "Use libc++ for the C++ standard library" ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 if(UNIX OR MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 
