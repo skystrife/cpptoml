@@ -196,7 +196,7 @@ class base : public std::enable_shared_from_this<base>
      */
     template <class T>
     std::shared_ptr<value<T>> as();
-    
+
     template <class T>
     std::shared_ptr<const value<T>> as() const;
 
@@ -289,10 +289,12 @@ inline std::shared_ptr<const value<T>> base::as() const
 template <>
 inline std::shared_ptr<const value<double>> base::as() const
 {
-    if (auto v = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
+    if (auto v
+        = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
         return v;
 
-    if (auto v = std::dynamic_pointer_cast<const value<int64_t>>(shared_from_this()))
+    if (auto v
+        = std::dynamic_pointer_cast<const value<int64_t>>(shared_from_this()))
         return std::make_shared<const value<double>>(v->get());
 
     return nullptr;
@@ -393,8 +395,8 @@ class table_array : public base
     {
         return array_;
     }
-    
-    const std::vector< std::shared_ptr< table>>& get() const
+
+    const std::vector<std::shared_ptr<table>>& get() const
     {
         return array_;
     }
@@ -1714,11 +1716,13 @@ void base::accept(Visitor&& visitor, Args&&... args) const
     }
     else if (is_table())
     {
-        visitor.visit(static_cast<const table&>(*this), std::forward<Args>(args)...);
+        visitor.visit(static_cast<const table&>(*this),
+                      std::forward<Args>(args)...);
     }
     else if (is_array())
     {
-        visitor.visit(static_cast<const array&>(*this), std::forward<Args>(args)...);
+        visitor.visit(static_cast<const array&>(*this),
+                      std::forward<Args>(args)...);
     }
     else if (is_table_array())
     {
