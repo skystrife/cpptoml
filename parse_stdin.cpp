@@ -20,87 +20,88 @@ std::string escape_string(const std::string& str)
     return res;
 }
 
-void print_value(std::ostream& o, const std::shared_ptr<cpptoml::base>& base)
+/**
+ * A visitor for toml objects that writes to an output stream in the JSON
+ * format that the toml-test suite expects.
+ */
+class toml_test_writer
 {
-    if (auto v = base->as<std::string>())
+  public:
+    toml_test_writer(std::ostream& s) : stream_(s)
     {
-        o << "{\"type\":\"string\",\"value\":\"" << escape_string(v->get())
-          << "\"}";
+        // nothing
     }
-    else if (auto v = base->as<int64_t>())
-    {
-        o << "{\"type\":\"integer\",\"value\":\"" << v->get() << "\"}";
-    }
-    else if (auto v = base->as<double>())
-    {
-        o << "{\"type\":\"float\",\"value\":\"" << v->get() << "\"}";
-    }
-    else if (auto v = base->as<cpptoml::datetime>())
-    {
-        o << "{\"type\":\"datetime\",\"value\":\"" << v->get() << "\"}";
-    }
-    else if (auto v = base->as<bool>())
-    {
-        o << "{\"type\":\"bool\",\"value\":\"";
-        o << (*v);
-        o << "\"}";
-    }
-}
 
-void print_array(std::ostream& o, cpptoml::array& arr)
-{
-    o << "{\"type\":\"array\",\"value\":[";
-    auto it = arr.get().begin();
-    while (it != arr.get().end())
+    void visit(cpptoml::value<std::string>& v)
     {
-        if ((*it)->is_array())
-            print_array(o, *(*it)->as_array());
-        else
-            print_value(o, *it);
-
-        if (++it != arr.get().end())
-            o << ", ";
+        stream_ << "{\"type\":\"string\",\"value\":\"" << escape_string(v.get())
+                << "\"}";
     }
-    o << "]}";
-}
 
-void print_table(std::ostream& o, cpptoml::table& g)
-{
-    o << "{";
-    auto it = g.begin();
-    while (it != g.end())
+    void visit(cpptoml::value<int64_t>& v)
     {
-        o << '"' << escape_string(it->first) << "\":";
-        if (it->second->is_array())
-        {
-            print_array(o, *it->second->as_array());
-        }
-        else if (it->second->is_table())
-        {
-            print_table(o, *g.get_table(it->first));
-        }
-        else if (it->second->is_table_array())
-        {
-            o << "[";
-            auto arr = g.get_table_array(it->first)->get();
-            auto ait = arr.begin();
-            while (ait != arr.end())
-            {
-                print_table(o, **ait);
-                if (++ait != arr.end())
-                    o << ", ";
-            }
-            o << "]";
-        }
-        else
-        {
-            print_value(o, it->second);
-        }
-        if (++it != g.end())
-            o << ", ";
+        stream_ << "{\"type\":\"integer\",\"value\":\"" << v.get() << "\"}";
     }
-    o << "}";
-}
+
+    void visit(cpptoml::value<double>& v)
+    {
+        stream_ << "{\"type\":\"float\",\"value\":\"" << v.get() << "\"}";
+    }
+
+    void visit(cpptoml::value<cpptoml::datetime>& v)
+    {
+        stream_ << "{\"type\":\"datetime\",\"value\":\"" << v.get() << "\"}";
+    }
+
+    void visit(cpptoml::value<bool>& v)
+    {
+        stream_ << "{\"type\":\"bool\",\"value\":\"" << v << "\"}";
+    }
+
+    void visit(cpptoml::array& arr)
+    {
+        stream_ << "{\"type\":\"array\",\"value\":[";
+        auto it = arr.get().begin();
+        while (it != arr.get().end())
+        {
+            (*it)->accept(*this);
+            if (++it != arr.get().end())
+                stream_ << ", ";
+        }
+        stream_ << "]}";
+    }
+
+    void visit(cpptoml::table_array& tarr)
+    {
+        stream_ << "[";
+        auto arr = tarr.get();
+        auto ait = arr.begin();
+        while (ait != arr.end())
+        {
+            (*ait)->accept(*this);
+            if (++ait != arr.end())
+                stream_ << ", ";
+        }
+        stream_ << "]";
+    }
+
+    void visit(cpptoml::table& t)
+    {
+        stream_ << "{";
+        auto it = t.begin();
+        while (it != t.end())
+        {
+            stream_ << '"' << escape_string(it->first) << "\":";
+            it->second->accept(*this);
+            if (++it != t.end())
+                stream_ << ", ";
+        }
+        stream_ << "}";
+    }
+
+  private:
+    std::ostream& stream_;
+};
 
 int main()
 {
@@ -109,7 +110,8 @@ int main()
     try
     {
         cpptoml::table g = p.parse();
-        print_table(std::cout, g);
+        toml_test_writer writer{std::cout};
+        g.accept(writer);
         std::cout << std::endl;
     }
     catch (const cpptoml::parse_exception& ex)
