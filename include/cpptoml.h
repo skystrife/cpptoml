@@ -1993,7 +1993,7 @@ class toml_writer
     bool has_naked_endline_;
 };
 
-std::ostream& operator<<(std::ostream& stream, base& b)
+inline std::ostream& operator<<(std::ostream& stream, base& b)
 {
     toml_writer writer{stream};
     b.accept(writer);
@@ -2008,21 +2008,21 @@ std::ostream& operator<<(std::ostream& stream, value<T>& v)
     return stream;
 }
 
-std::ostream& operator<<(std::ostream& stream, table& t)
+inline std::ostream& operator<<(std::ostream& stream, table& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-std::ostream& operator<<(std::ostream& stream, table_array& t)
+inline std::ostream& operator<<(std::ostream& stream, table_array& t)
 {
     toml_writer writer{stream};
     t.accept(writer);
     return stream;
 }
 
-std::ostream& operator<<(std::ostream& stream, array& a)
+inline std::ostream& operator<<(std::ostream& stream, array& a)
 {
     toml_writer writer{stream};
     a.accept(writer);
