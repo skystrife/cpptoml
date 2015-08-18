@@ -2110,6 +2110,7 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
+        stream_ << std::showpoint;
         write(v.get());
     }
 
@@ -2152,7 +2153,18 @@ class toml_writer
                     write(".");
                 }
 
-                write(path_[i]);
+                if (path_[i].find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
+                                               "fghijklmnopqrstuvwxyz0123456789"
+                                               "_-") == std::string::npos)
+                {
+                    write(path_[i]);
+                }
+                else
+                {
+                    write("\"");
+                    write(escape_string(path_[i]));
+                    write("\"");
+                }
             }
 
             if (in_array)
@@ -2173,7 +2185,20 @@ class toml_writer
         if (!b.is_table() && !b.is_table_array())
         {
             indent();
-            write(path_.back());
+
+            if (path_.back().find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
+                                               "fghijklmnopqrstuvwxyz0123456789"
+                                               "_-") == std::string::npos)
+            {
+                write(path_.back());
+            }
+            else
+            {
+                write("\"");
+                write(escape_string(path_.back()));
+                write("\"");
+            }
+
             write(" = ");
         }
     }
