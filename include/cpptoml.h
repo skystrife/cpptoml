@@ -82,6 +82,37 @@ struct datetime
     int microsecond = 0;
     int hour_offset = 0;
     int minute_offset = 0;
+    
+    static inline struct datetime from_local(const struct tm &t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        
+        char buf[16];
+        strftime(buf, 16, "%z", &t);
+        
+        int offset = std::stoi(buf);
+        dt.hour_offset = offset / 100;
+        dt.minute_offset = offset % 100;
+        return dt;
+    }
+    
+    static inline struct datetime from_utc(const struct tm& t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        return dt;
+    }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
