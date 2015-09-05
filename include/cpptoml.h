@@ -1680,11 +1680,11 @@ class parser
 inline table parse_file(const std::string& filename)
 {
 #if defined(BOOST_NOWIDE_FSTREAM_INCLUDED_HPP)
-	boost::nowide::ifstream file{ filename.c_str() };
+    boost::nowide::ifstream file{filename.c_str()};
 #elif defined(NOWIDE_FSTREAM_INCLUDED_HPP)
-	nowide::ifstream file{ filename.c_str() };
+    nowide::ifstream file{filename.c_str()};
 #else
-	std::ifstream file{ filename };
+    std::ifstream file{filename};
 #endif
     if (!file.is_open())
         throw parse_exception{filename + " could not be opened for parsing"};
