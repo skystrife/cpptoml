@@ -82,6 +82,37 @@ struct datetime
     int microsecond = 0;
     int hour_offset = 0;
     int minute_offset = 0;
+    
+    static inline struct datetime from_local(const struct tm &t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        
+        char buf[16];
+        strftime(buf, 16, "%z", &t);
+        
+        int offset = std::stoi(buf);
+        dt.hour_offset = offset / 100;
+        dt.minute_offset = offset % 100;
+        return dt;
+    }
+    
+    static inline struct datetime from_utc(const struct tm& t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        return dt;
+    }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
@@ -302,6 +333,17 @@ inline std::shared_ptr<const value<double>> base::as() const
     return nullptr;
 }
 
+/**
+ * Exception class for array insertion errors.
+ */
+class array_exception : public std::runtime_error
+{
+  public:
+    array_exception(const std::string& err) : std::runtime_error{err}
+    {
+    }
+};
+
 class array : public base
 {
   public:
@@ -317,6 +359,36 @@ class array : public base
     virtual bool is_array() const override
     {
         return true;
+    }
+
+    /**
+     * arrays can be iterated over
+     */
+    using iterator = std::vector<std::shared_ptr<base>>::iterator;
+
+    /**
+     * arrays can be iterated over.  Const version.
+     */
+    using const_iterator = std::vector<std::shared_ptr<base>>::const_iterator;
+
+    iterator begin()
+    {
+        return values_.begin();
+    }
+
+    const_iterator begin() const
+    {
+        return values_.begin();
+    }
+
+    iterator end()
+    {
+        return values_.end();
+    }
+
+    const_iterator end() const
+    {
+        return values_.end();
     }
 
     /**
@@ -352,8 +424,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           return v->as<T>();
-                       });
+            return v->as<T>();
+        });
 
         return result;
     }
@@ -369,12 +441,121 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           if (v->is_array())
-                               return std::static_pointer_cast<array>(v);
-                           return std::shared_ptr<array>{};
-                       });
+            if (v->is_array())
+                return std::static_pointer_cast<array>(v);
+            return std::shared_ptr<array>{};
+        });
 
         return result;
+    }
+
+    /**
+     * Add a value to the end of the array
+     */
+    template <class T>
+    void push_back(const std::shared_ptr<value<T>>& val)
+    {
+        if (values_.empty() || values_[0]->as<T>())
+        {
+            values_.push_back(val);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Add an array to the end of the array
+     */
+    void push_back(const std::shared_ptr<array>& val)
+    {
+        if (values_.empty() || values_[0]->is_array())
+        {
+            values_.push_back(val);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Convenience function for adding a simple element to the end
+     * of the array.
+     */
+    template <class T>
+    void push_back(const T& val,
+                   typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        push_back(std::make_shared<value<T>>(val));
+    }
+
+    /**
+     * Insert a value into the array
+     */
+    template <class T>
+    iterator insert(iterator position, const std::shared_ptr<value<T>>& value)
+    {
+        if (values_.empty() || values_[0]->as<T>())
+        {
+            return values_.insert(position, value);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Insert an array into the array
+     */
+    iterator insert(iterator position, const std::shared_ptr<array>& value)
+    {
+        if (values_.empty() || values_[0]->is_array())
+        {
+            return values_.insert(position, value);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Convenience function for inserting a simple element in the array
+     */
+    // template<class T>
+    // iterator insert(iterator position, T&& val,
+    //    typename std::enable_if<valid_value<T>::value>::type* = 0)
+    //{
+    //    return insert(position, element_factory::create_value(val));
+    //}
+
+    /**
+     * Convenience function for inserting a simple element in the array
+     */
+    template <class T>
+    iterator insert(iterator position, const T& val,
+                    typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        return insert(position, std::make_shared<value<T>>(val));
+    }
+
+    /**
+     * Erase an element from the array
+     */
+    iterator erase(iterator position)
+    {
+        return values_.erase(position);
+    }
+
+    /**
+     * Clear the array
+     */
+    void clear()
+    {
+        values_.clear();
     }
 
   private:
@@ -388,6 +569,36 @@ class table_array : public base
     friend class table;
 
   public:
+    /**
+     * arrays can be iterated over
+     */
+    using iterator = std::vector<std::shared_ptr<table>>::iterator;
+
+    /**
+     * arrays can be iterated over.  Const version.
+     */
+    using const_iterator = std::vector<std::shared_ptr<table>>::const_iterator;
+
+    iterator begin()
+    {
+        return array_.begin();
+    }
+
+    const_iterator begin() const
+    {
+        return array_.begin();
+    }
+
+    iterator end()
+    {
+        return array_.end();
+    }
+
+    const_iterator end() const
+    {
+        return array_.end();
+    }
+
     virtual bool is_table_array() const override
     {
         return true;
@@ -401,6 +612,38 @@ class table_array : public base
     const std::vector<std::shared_ptr<table>>& get() const
     {
         return array_;
+    }
+
+    /**
+     * Add a table to the end of the array
+     */
+    void push_back(const std::shared_ptr<table>& val)
+    {
+        array_.push_back(val);
+    }
+
+    /**
+     * Insert a table into the array
+     */
+    iterator insert(iterator position, const std::shared_ptr<table>& value)
+    {
+        return array_.insert(position, value);
+    }
+
+    /**
+     * Erase an element from the array
+     */
+    iterator erase(iterator position)
+    {
+        return array_.erase(position);
+    }
+
+    /**
+     * Clear the array
+     */
+    void clear()
+    {
+        array_.clear();
     }
 
   private:
@@ -612,7 +855,7 @@ class table : public base
      * keytable.
      */
     template <class T>
-    void insert(const std::string& key, T&& val,
+    void insert(const std::string& key, const T& val,
                 typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
         insert(key, std::make_shared<value<T>>(std::forward<T>(val)));
@@ -770,8 +1013,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -844,8 +1087,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -930,8 +1173,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-                                 return c == '=';
-                             });
+            return c == '=';
+        });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -979,8 +1222,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == ' ' || c == '\t';
-                         }) != key_end)
+                return c == ' ' || c == '\t';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -988,8 +1231,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == '[' || c == ']';
-                         }) != key_end)
+                return c == '[' || c == ']';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1386,9 +1629,8 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ' ' || c == '\t'
-                                               || c == '#';
-                                    });
+            return c == ' ' || c == '\t' || c == '#';
+        });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1404,10 +1646,9 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-                                return !is_number(c) && c != 'T' && c != 'Z'
-                                       && c != ':' && c != '-' && c != '+'
-                                       && c != '.';
-                            });
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
+                   && c != '+' && c != '.';
+        });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1505,8 +1746,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ',' || c == ']' || c == '#';
-                                    });
+            return c == ',' || c == ']' || c == '#';
+        });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1908,6 +2149,7 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
+        stream_ << std::showpoint;
         write(v.get());
     }
 
@@ -1950,7 +2192,18 @@ class toml_writer
                     write(".");
                 }
 
-                write(path_[i]);
+                if (path_[i].find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
+                                               "fghijklmnopqrstuvwxyz0123456789"
+                                               "_-") == std::string::npos)
+                {
+                    write(path_[i]);
+                }
+                else
+                {
+                    write("\"");
+                    write(escape_string(path_[i]));
+                    write("\"");
+                }
             }
 
             if (in_array)
@@ -1971,7 +2224,20 @@ class toml_writer
         if (!b.is_table() && !b.is_table_array())
         {
             indent();
-            write(path_.back());
+
+            if (path_.back().find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
+                                               "fghijklmnopqrstuvwxyz0123456789"
+                                               "_-") == std::string::npos)
+            {
+                write(path_.back());
+            }
+            else
+            {
+                write("\"");
+                write(escape_string(path_.back()));
+                write("\"");
+            }
+
             write(" = ");
         }
     }
