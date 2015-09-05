@@ -207,10 +207,12 @@ class base : public std::enable_shared_from_this<base>
 template <class T>
 struct valid_value
 {
-    const static bool value
-        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
-          || std::is_same<T, double>::value || std::is_same<T, bool>::value
-          || std::is_same<T, datetime>::value;
+    using type = typename std::decay<T>::type;
+    const static bool value = std::is_same<type, std::string>::value
+                              || std::is_same<type, int64_t>::value
+                              || std::is_same<type, double>::value
+                              || std::is_same<type, bool>::value
+                              || std::is_same<type, datetime>::value;
 };
 
 /**
@@ -613,7 +615,7 @@ class table : public base
     void insert(const std::string& key, T&& val,
                 typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
-        insert(key, std::make_shared<value<T>>(val));
+        insert(key, std::make_shared<value<T>>(std::forward<T>(val)));
     }
 
   private:
