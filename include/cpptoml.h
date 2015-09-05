@@ -1908,7 +1908,15 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
+        std::ios::fmtflags flags{stream_.flags()};
+        auto precision = stream_.precision();
+    
+                stream_ << std::showpoint 
+                << std::setprecision(std::numeric_limits<double>::max_digits10);
         write(v.get());
+    
+        stream_.flags(flags);
+        stream_.precision(precision);
     }
 
     /**
