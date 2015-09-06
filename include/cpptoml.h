@@ -82,8 +82,8 @@ struct datetime
     int microsecond = 0;
     int hour_offset = 0;
     int minute_offset = 0;
-    
-    static inline struct datetime from_local(const struct tm &t)
+
+    static inline struct datetime from_local(const struct tm& t)
     {
         datetime dt;
         dt.year = t.tm_year + 1900;
@@ -92,16 +92,16 @@ struct datetime
         dt.hour = t.tm_hour;
         dt.minute = t.tm_min;
         dt.second = t.tm_sec;
-        
+
         char buf[16];
         strftime(buf, 16, "%z", &t);
-        
+
         int offset = std::stoi(buf);
         dt.hour_offset = offset / 100;
         dt.minute_offset = offset % 100;
         return dt;
     }
-    
+
     static inline struct datetime from_utc(const struct tm& t)
     {
         datetime dt;
@@ -503,12 +503,12 @@ class array : public base
      * of the array.
      */
     template <class T>
-    void push_back(T&& val,
-                   typename value_traits<T>::type* = 0)
+    void push_back(T&& val, typename value_traits<T>::type* = 0)
     {
-        push_back(std::make_shared<typename value_traits<T>::type>(std::forward<T>(val)));
+        push_back(std::make_shared<typename value_traits<T>::type>(
+            std::forward<T>(val)));
     }
-    
+
     /**
      * Insert a value into the array
      */
@@ -548,7 +548,8 @@ class array : public base
                     typename value_traits<T>::type* = 0)
     {
         return insert(position,
-                      std::make_shared<typename value_traits<T>::type>(std::forward<T>(val)));
+                      std::make_shared<typename value_traits<T>::type>(
+                          std::forward<T>(val)));
     }
 
     /**
