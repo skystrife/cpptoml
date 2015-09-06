@@ -454,10 +454,10 @@ class array : public base
      * of the array.
      */
     template <class T>
-    void push_back(const T& val,
+    void push_back(T&& val,
                    typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
-        push_back(std::make_shared<value<T>>(val));
+        push_back(std::make_shared<value<T>>(std::forward<T>(val)));
     }
 
     /**
@@ -494,21 +494,11 @@ class array : public base
     /**
      * Convenience function for inserting a simple element in the array
      */
-    // template<class T>
-    // iterator insert(iterator position, T&& val,
-    //    typename std::enable_if<valid_value<T>::value>::type* = 0)
-    //{
-    //    return insert(position, element_factory::create_value(val));
-    //}
-
-    /**
-     * Convenience function for inserting a simple element in the array
-     */
     template <class T>
-    iterator insert(iterator position, const T& val,
+    iterator insert(iterator position, T&& val,
                     typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
-        return insert(position, std::make_shared<value<T>>(val));
+        return insert(position, std::make_shared<value<T>>(std::forward<T>(val)));
     }
 
     /**
