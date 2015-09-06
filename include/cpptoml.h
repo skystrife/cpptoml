@@ -2162,18 +2162,7 @@ class toml_writer
                     write(".");
                 }
 
-                if (path_[i].find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
-                                               "fghijklmnopqrstuvwxyz0123456789"
-                                               "_-") == std::string::npos)
-                {
-                    write(path_[i]);
-                }
-                else
-                {
-                    write("\"");
-                    write(escape_string(path_[i]));
-                    write("\"");
-                }
+                write(path_[i]);
             }
 
             if (in_array)
@@ -2194,20 +2183,7 @@ class toml_writer
         if (!b.is_table() && !b.is_table_array())
         {
             indent();
-
-            if (path_.back().find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
-                                               "fghijklmnopqrstuvwxyz0123456789"
-                                               "_-") == std::string::npos)
-            {
-                write(path_.back());
-            }
-            else
-            {
-                write("\"");
-                write(escape_string(path_.back()));
-                write("\"");
-            }
-
+            write(path_.back());
             write(" = ");
         }
     }
