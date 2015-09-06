@@ -207,12 +207,27 @@ class base : public std::enable_shared_from_this<base>
 template <class T>
 struct valid_value
 {
-    using type = typename std::decay<T>::type;
-    const static bool value = std::is_same<type, std::string>::value
-                              || std::is_same<type, int64_t>::value
-                              || std::is_same<type, double>::value
-                              || std::is_same<type, bool>::value
-                              || std::is_same<type, datetime>::value;
+    const static bool value
+        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
+          || std::is_same<T, double>::value || std::is_same<T, bool>::value
+          || std::is_same<T, datetime>::value;
+};
+
+template <class T, bool Valid = valid_value<typename std::decay<T>::type>::value
+                                || std::is_convertible<T, std::string>::value>
+struct value_traits;
+
+template <class T>
+struct value_traits<T, true>
+{
+    const static bool valid = valid_value<typename std::decay<T>::type>::value
+                              || std::is_convertible<T, std::string>::value;
+
+    using value_type = typename std::
+        conditional<valid_value<typename std::decay<T>::type>::value,
+                    typename std::decay<T>::type, std::string>::type;
+
+    using type = value<value_type>;
 };
 
 /**
@@ -613,9 +628,10 @@ class table : public base
      */
     template <class T>
     void insert(const std::string& key, T&& val,
-                typename std::enable_if<valid_value<T>::value>::type* = 0)
+                typename value_traits<T>::type* = 0)
     {
-        insert(key, std::make_shared<value<T>>(std::forward<T>(val)));
+        insert(key, std::make_shared<typename value_traits<T>::type>(
+                        std::forward<T>(val)));
     }
 
   private:
