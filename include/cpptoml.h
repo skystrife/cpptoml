@@ -310,9 +310,12 @@ inline std::shared_ptr<const value<double>> base::as() const
         = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
         return v;
 
-    if (auto v
-        = std::dynamic_pointer_cast<const value<int64_t>>(shared_from_this()))
-        return std::make_shared<const value<double>>(v->get());
+    if (auto v = as<int64_t>())
+    {
+        // the below has to be a non-const value<double> due to a bug in
+        // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
+        return std::make_shared<value<double>>(v->get());
+    }
 
     return nullptr;
 }
