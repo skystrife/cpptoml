@@ -66,6 +66,13 @@ class option
         return value_;
     }
 
+    const T& value_or(const T& alternative) const
+    {
+        if (!empty_)
+            return value_;
+        return alternative;
+    }
+
   private:
     bool empty_;
     T value_;
