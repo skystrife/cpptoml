@@ -82,6 +82,37 @@ struct datetime
     int microsecond = 0;
     int hour_offset = 0;
     int minute_offset = 0;
+    
+    static inline struct datetime from_local(const struct tm &t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        
+        char buf[16];
+        strftime(buf, 16, "%z", &t);
+        
+        int offset = std::stoi(buf);
+        dt.hour_offset = offset / 100;
+        dt.minute_offset = offset % 100;
+        return dt;
+    }
+    
+    static inline struct datetime from_utc(const struct tm& t)
+    {
+        datetime dt;
+        dt.year = t.tm_year + 1900;
+        dt.month = t.tm_mon + 1;
+        dt.day = t.tm_mday;
+        dt.hour = t.tm_hour;
+        dt.minute = t.tm_min;
+        dt.second = t.tm_sec;
+        return dt;
+    }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
@@ -207,12 +238,27 @@ class base : public std::enable_shared_from_this<base>
 template <class T>
 struct valid_value
 {
-    using type = typename std::decay<T>::type;
-    const static bool value = std::is_same<type, std::string>::value
-                              || std::is_same<type, int64_t>::value
-                              || std::is_same<type, double>::value
-                              || std::is_same<type, bool>::value
-                              || std::is_same<type, datetime>::value;
+    const static bool value
+        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
+          || std::is_same<T, double>::value || std::is_same<T, bool>::value
+          || std::is_same<T, datetime>::value;
+};
+
+template <class T, bool Valid = valid_value<typename std::decay<T>::type>::value
+                                || std::is_convertible<T, std::string>::value>
+struct value_traits;
+
+template <class T>
+struct value_traits<T, true>
+{
+    const static bool valid = valid_value<typename std::decay<T>::type>::value
+                              || std::is_convertible<T, std::string>::value;
+
+    using value_type = typename std::
+        conditional<valid_value<typename std::decay<T>::type>::value,
+                    typename std::decay<T>::type, std::string>::type;
+
+    using type = value<value_type>;
 };
 
 /**
@@ -295,9 +341,12 @@ inline std::shared_ptr<const value<double>> base::as() const
         = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
         return v;
 
-    if (auto v
-        = std::dynamic_pointer_cast<const value<int64_t>>(shared_from_this()))
-        return std::make_shared<const value<double>>(v->get());
+    if (auto v = as<int64_t>())
+    {
+        // the below has to be a non-const value<double> due to a bug in
+        // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
+        return std::make_shared<value<double>>(v->get());
+    }
 
     return nullptr;
 }
@@ -858,9 +907,10 @@ class table : public base
      */
     template <class T>
     void insert(const std::string& key, T&& val,
-                typename std::enable_if<valid_value<T>::value>::type* = 0)
+                typename value_traits<T>::type* = 0)
     {
-        insert(key, std::make_shared<value<T>>(std::forward<T>(val)));
+        insert(key, std::make_shared<typename value_traits<T>::type>(
+                        std::forward<T>(val)));
     }
 
     /**
@@ -2173,7 +2223,12 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
+        std::ios::fmtflags flags{stream_.flags()};
+
+        stream_ << std::showpoint;
         write(v.get());
+
+        stream_.flags(flags);
     }
 
     /**
