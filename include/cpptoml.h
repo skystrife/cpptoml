@@ -504,33 +504,11 @@ class array : public base
      */
     template <class T>
     void push_back(T&& val,
-                   typename std::enable_if<valid_value<T>::value>::type* = 0)
+                   typename value_traits<T>::type* = 0)
     {
-        push_back(std::make_shared<value<T>>(std::forward<T>(val)));
+        push_back(std::make_shared<typename value_traits<T>::type>(std::forward<T>(val)));
     }
-
-    /**
-     * Convenience function for adding a simple element to the end
-     * of the array.
-     */
-    template <class T>
-    void push_back(T& val,
-                   typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        push_back(std::make_shared<value<T>>(val));
-    }
-
-    /**
-     * Convenience function for adding a simple element to the end
-     * of the array.
-     */
-    template <class T>
-    void push_back(const T& val,
-                   typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        push_back(std::make_shared<value<T>>(val));
-    }
-
+    
     /**
      * Insert a value into the array
      */
@@ -567,30 +545,10 @@ class array : public base
      */
     template <class T>
     iterator insert(iterator position, T&& val,
-                    typename std::enable_if<valid_value<T>::value>::type* = 0)
+                    typename value_traits<T>::type* = 0)
     {
         return insert(position,
-                      std::make_shared<value<T>>(std::forward<T>(val)));
-    }
-
-    /**
-     * Convenience function for inserting a simple element in the array
-     */
-    template <class T>
-    iterator insert(iterator position, T& val,
-                    typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        return insert(position, std::make_shared<value<T>>(val));
-    }
-
-    /**
-     * Convenience function for inserting a simple element in the array
-     */
-    template <class T>
-    iterator insert(iterator position, const T& val,
-                    typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        return insert(position, std::make_shared<value<T>>(val));
+                      std::make_shared<typename value_traits<T>::type>(std::forward<T>(val)));
     }
 
     /**
@@ -911,28 +869,6 @@ class table : public base
     {
         insert(key, std::make_shared<typename value_traits<T>::type>(
                         std::forward<T>(val)));
-    }
-
-    /**
-     * Convenience shorthand for adding a simple element to the
-     * keytable.
-     */
-    template <class T>
-    void insert(const std::string& key, T& val,
-                typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        insert(key, std::make_shared<value<T>>(val));
-    }
-
-    /**
-     * Convenience shorthand for adding a simple element to the
-     * keytable.
-     */
-    template <class T>
-    void insert(const std::string& key, const T& val,
-                typename std::enable_if<valid_value<T>::value>::type* = 0)
-    {
-        insert(key, std::make_shared<value<T>>(val));
     }
 
   private:
