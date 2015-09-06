@@ -393,8 +393,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           return v->as<T>();
-                       });
+            return v->as<T>();
+        });
 
         return result;
     }
@@ -410,10 +410,10 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           if (v->is_array())
-                               return std::static_pointer_cast<array>(v);
-                           return std::shared_ptr<array>{};
-                       });
+            if (v->is_array())
+                return std::static_pointer_cast<array>(v);
+            return std::shared_ptr<array>{};
+        });
 
         return result;
     }
@@ -461,6 +461,28 @@ class array : public base
     }
 
     /**
+     * Convenience function for adding a simple element to the end
+     * of the array.
+     */
+    template <class T>
+    void push_back(T& val,
+                   typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        push_back(std::make_shared<value<T>>(val));
+    }
+
+    /**
+     * Convenience function for adding a simple element to the end
+     * of the array.
+     */
+    template <class T>
+    void push_back(const T& val,
+                   typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        push_back(std::make_shared<value<T>>(val));
+    }
+
+    /**
      * Insert a value into the array
      */
     template <class T>
@@ -498,7 +520,28 @@ class array : public base
     iterator insert(iterator position, T&& val,
                     typename std::enable_if<valid_value<T>::value>::type* = 0)
     {
-        return insert(position, std::make_shared<value<T>>(std::forward<T>(val)));
+        return insert(position,
+                      std::make_shared<value<T>>(std::forward<T>(val)));
+    }
+
+    /**
+     * Convenience function for inserting a simple element in the array
+     */
+    template <class T>
+    iterator insert(iterator position, T& val,
+                    typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        return insert(position, std::make_shared<value<T>>(val));
+    }
+
+    /**
+     * Convenience function for inserting a simple element in the array
+     */
+    template <class T>
+    iterator insert(iterator position, const T& val,
+                    typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        return insert(position, std::make_shared<value<T>>(val));
     }
 
     /**
@@ -820,6 +863,28 @@ class table : public base
         insert(key, std::make_shared<value<T>>(std::forward<T>(val)));
     }
 
+    /**
+     * Convenience shorthand for adding a simple element to the
+     * keytable.
+     */
+    template <class T>
+    void insert(const std::string& key, T& val,
+                typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        insert(key, std::make_shared<value<T>>(val));
+    }
+
+    /**
+     * Convenience shorthand for adding a simple element to the
+     * keytable.
+     */
+    template <class T>
+    void insert(const std::string& key, const T& val,
+                typename std::enable_if<valid_value<T>::value>::type* = 0)
+    {
+        insert(key, std::make_shared<value<T>>(val));
+    }
+
   private:
     std::vector<std::string> split(const std::string& value,
                                    char separator) const
@@ -972,8 +1037,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -1046,8 +1111,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -1132,8 +1197,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-                                 return c == '=';
-                             });
+            return c == '=';
+        });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1181,8 +1246,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == ' ' || c == '\t';
-                         }) != key_end)
+                return c == ' ' || c == '\t';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -1190,8 +1255,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == '[' || c == ']';
-                         }) != key_end)
+                return c == '[' || c == ']';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1588,9 +1653,8 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ' ' || c == '\t'
-                                               || c == '#';
-                                    });
+            return c == ' ' || c == '\t' || c == '#';
+        });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1606,10 +1670,9 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-                                return !is_number(c) && c != 'T' && c != 'Z'
-                                       && c != ':' && c != '-' && c != '+'
-                                       && c != '.';
-                            });
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
+                   && c != '+' && c != '.';
+        });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1707,8 +1770,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ',' || c == ']' || c == '#';
-                                    });
+            return c == ',' || c == ']' || c == '#';
+        });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
