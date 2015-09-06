@@ -82,8 +82,8 @@ struct datetime
     int microsecond = 0;
     int hour_offset = 0;
     int minute_offset = 0;
-    
-    static inline struct datetime from_local(const struct tm &t)
+
+    static inline struct datetime from_local(const struct tm& t)
     {
         datetime dt;
         dt.year = t.tm_year + 1900;
@@ -92,16 +92,16 @@ struct datetime
         dt.hour = t.tm_hour;
         dt.minute = t.tm_min;
         dt.second = t.tm_sec;
-        
+
         char buf[16];
         strftime(buf, 16, "%z", &t);
-        
+
         int offset = std::stoi(buf);
         dt.hour_offset = offset / 100;
         dt.minute_offset = offset % 100;
         return dt;
     }
-    
+
     static inline struct datetime from_utc(const struct tm& t)
     {
         datetime dt;
@@ -351,6 +351,17 @@ inline std::shared_ptr<const value<double>> base::as() const
     return nullptr;
 }
 
+/**
+ * Exception class for array insertion errors.
+ */
+class array_exception : public std::runtime_error
+{
+  public:
+    array_exception(const std::string& err) : std::runtime_error{err}
+    {
+    }
+};
+
 class array : public base
 {
   public:
@@ -366,6 +377,36 @@ class array : public base
     virtual bool is_array() const override
     {
         return true;
+    }
+
+    /**
+     * arrays can be iterated over
+     */
+    using iterator = std::vector<std::shared_ptr<base>>::iterator;
+
+    /**
+     * arrays can be iterated over.  Const version.
+     */
+    using const_iterator = std::vector<std::shared_ptr<base>>::const_iterator;
+
+    iterator begin()
+    {
+        return values_.begin();
+    }
+
+    const_iterator begin() const
+    {
+        return values_.begin();
+    }
+
+    iterator end()
+    {
+        return values_.end();
+    }
+
+    const_iterator end() const
+    {
+        return values_.end();
     }
 
     /**
@@ -426,6 +467,107 @@ class array : public base
         return result;
     }
 
+    /**
+     * Add a value to the end of the array
+     */
+    template <class T>
+    void push_back(const std::shared_ptr<value<T>>& val)
+    {
+        if (values_.empty() || values_[0]->as<T>())
+        {
+            values_.push_back(val);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Add an array to the end of the array
+     */
+    void push_back(const std::shared_ptr<array>& val)
+    {
+        if (values_.empty() || values_[0]->is_array())
+        {
+            values_.push_back(val);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Convenience function for adding a simple element to the end
+     * of the array.
+     */
+    template <class T>
+    void push_back(T&& val, typename value_traits<T>::type* = 0)
+    {
+        push_back(std::make_shared<typename value_traits<T>::type>(
+            std::forward<T>(val)));
+    }
+
+    /**
+     * Insert a value into the array
+     */
+    template <class T>
+    iterator insert(iterator position, const std::shared_ptr<value<T>>& value)
+    {
+        if (values_.empty() || values_[0]->as<T>())
+        {
+            return values_.insert(position, value);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Insert an array into the array
+     */
+    iterator insert(iterator position, const std::shared_ptr<array>& value)
+    {
+        if (values_.empty() || values_[0]->is_array())
+        {
+            return values_.insert(position, value);
+        }
+        else
+        {
+            throw array_exception{"Arrays must be homogenous."};
+        }
+    }
+
+    /**
+     * Convenience function for inserting a simple element in the array
+     */
+    template <class T>
+    iterator insert(iterator position, T&& val,
+                    typename value_traits<T>::type* = 0)
+    {
+        return insert(position,
+                      std::make_shared<typename value_traits<T>::type>(
+                          std::forward<T>(val)));
+    }
+
+    /**
+     * Erase an element from the array
+     */
+    iterator erase(iterator position)
+    {
+        return values_.erase(position);
+    }
+
+    /**
+     * Clear the array
+     */
+    void clear()
+    {
+        values_.clear();
+    }
+
   private:
     std::vector<std::shared_ptr<base>> values_;
 };
@@ -437,6 +579,36 @@ class table_array : public base
     friend class table;
 
   public:
+    /**
+     * arrays can be iterated over
+     */
+    using iterator = std::vector<std::shared_ptr<table>>::iterator;
+
+    /**
+     * arrays can be iterated over.  Const version.
+     */
+    using const_iterator = std::vector<std::shared_ptr<table>>::const_iterator;
+
+    iterator begin()
+    {
+        return array_.begin();
+    }
+
+    const_iterator begin() const
+    {
+        return array_.begin();
+    }
+
+    iterator end()
+    {
+        return array_.end();
+    }
+
+    const_iterator end() const
+    {
+        return array_.end();
+    }
+
     virtual bool is_table_array() const override
     {
         return true;
@@ -450,6 +622,38 @@ class table_array : public base
     const std::vector<std::shared_ptr<table>>& get() const
     {
         return array_;
+    }
+
+    /**
+     * Add a table to the end of the array
+     */
+    void push_back(const std::shared_ptr<table>& val)
+    {
+        array_.push_back(val);
+    }
+
+    /**
+     * Insert a table into the array
+     */
+    iterator insert(iterator position, const std::shared_ptr<table>& value)
+    {
+        return array_.insert(position, value);
+    }
+
+    /**
+     * Erase an element from the array
+     */
+    iterator erase(iterator position)
+    {
+        return array_.erase(position);
+    }
+
+    /**
+     * Clear the array
+     */
+    void clear()
+    {
+        array_.clear();
     }
 
   private:
