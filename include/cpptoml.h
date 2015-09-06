@@ -352,8 +352,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           return v->as<T>();
-                       });
+            return v->as<T>();
+        });
 
         return result;
     }
@@ -369,10 +369,10 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-                           if (v->is_array())
-                               return std::static_pointer_cast<array>(v);
-                           return std::shared_ptr<array>{};
-                       });
+            if (v->is_array())
+                return std::static_pointer_cast<array>(v);
+            return std::shared_ptr<array>{};
+        });
 
         return result;
     }
@@ -770,8 +770,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -844,8 +844,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                                      return c == '.' || c == ']';
-                                  });
+                return c == '.' || c == ']';
+            });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -930,8 +930,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-                                 return c == '=';
-                             });
+            return c == '=';
+        });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -979,8 +979,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == ' ' || c == '\t';
-                         }) != key_end)
+                return c == ' ' || c == '\t';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
@@ -988,8 +988,8 @@ class parser
 
         if (std::find_if(it, key_end, [](char c)
                          {
-                             return c == '[' || c == ']';
-                         }) != key_end)
+                return c == '[' || c == ']';
+            }) != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1386,9 +1386,8 @@ class parser
     {
         auto boolend = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ' ' || c == '\t'
-                                               || c == '#';
-                                    });
+            return c == ' ' || c == '\t' || c == '#';
+        });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1404,10 +1403,9 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-                                return !is_number(c) && c != 'T' && c != 'Z'
-                                       && c != ':' && c != '-' && c != '+'
-                                       && c != '.';
-                            });
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
+                   && c != '+' && c != '.';
+        });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1505,8 +1503,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-                                        return c == ',' || c == ']' || c == '#';
-                                    });
+            return c == ',' || c == ']' || c == '#';
+        });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -1910,11 +1908,11 @@ class toml_writer
     {
         std::ios::fmtflags flags{stream_.flags()};
         auto precision = stream_.precision();
-    
-                stream_ << std::showpoint 
+
+        stream_ << std::showpoint
                 << std::setprecision(std::numeric_limits<double>::max_digits10);
         write(v.get());
-    
+
         stream_.flags(flags);
         stream_.precision(precision);
     }
