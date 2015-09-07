@@ -288,14 +288,9 @@ class base : public std::enable_shared_from_this<base>
 template <class T>
 class value : public base
 {
-    friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(T&& val);
-
-    friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(T& val);
-
-    friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(const T& val);
+    template <class U>
+    friend std::shared_ptr<typename value_traits<U>::type>
+        cpptoml::make_value(U&& val);
 
   public:
     static_assert(valid_value<T>::value, "invalid value type");
@@ -336,11 +331,17 @@ class value : public base
 };
 
 template <class T>
-inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
+std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 {
-    typedef std::shared_ptr<typename value_traits<T>::type> pointer_type;
-    return pointer_type(
-        new typename pointer_type::element_type(std::forward<T>(val)));
+    using value_type = typename value_traits<T>::type;
+    struct make_shared_enabler : public value_type
+    {
+        make_shared_enabler(T&& val) : value_type(std::forward<T>(val))
+        {
+            // nothing
+        }
+    };
+    return std::make_shared<make_shared_enabler>(std::forward<T>(val));
 }
 
 template <class T>
@@ -617,7 +618,15 @@ class array : public base
 
 inline std::shared_ptr<array> make_array()
 {
-    return std::shared_ptr<array>(new array());
+    struct make_shared_enabler : public array
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
 }
 
 template <>
@@ -725,7 +734,15 @@ class table_array : public base
 
 inline std::shared_ptr<table_array> make_table_array()
 {
-    return std::shared_ptr<table_array>(new table_array());
+    struct make_shared_enabler : public table_array
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
 }
 
 template <>
@@ -1008,7 +1025,15 @@ class table : public base
 
 std::shared_ptr<table> make_table()
 {
-    return std::shared_ptr<table>(new table());
+    struct make_shared_enabler : public table
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
 }
 
 template <>
