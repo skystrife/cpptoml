@@ -13,8 +13,8 @@ int main(int argc, char** argv)
 
     try
     {
-        cpptoml::table g = cpptoml::parse_file(argv[1]);
-        std::cout << g << std::endl;
+        std::shared_ptr<cpptoml::table> g = cpptoml::parse_file(argv[1]);
+        std::cout << (*g) << std::endl;
     }
     catch (const cpptoml::parse_exception& e)
     {

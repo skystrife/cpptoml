@@ -109,9 +109,9 @@ int main()
     cpptoml::parser p{std::cin};
     try
     {
-        cpptoml::table g = p.parse();
+        std::shared_ptr<cpptoml::table> g = p.parse();
         toml_test_writer writer{std::cout};
-        g.accept(writer);
+        g->accept(writer);
         std::cout << std::endl;
     }
     catch (const cpptoml::parse_exception& ex)
