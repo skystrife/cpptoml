@@ -188,8 +188,7 @@ class table;
 class table_array;
 
 template <class T>
-inline std::shared_ptr<typename value_traits<T>::type>
-    make_value(T&& val, typename value_traits<T>::type* = 0);
+inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val);
 inline std::shared_ptr<array> make_array();
 template <class T>
 inline std::shared_ptr<T> make_element();
@@ -290,13 +289,13 @@ template <class T>
 class value : public base
 {
     friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(T&& val, typename value_traits<T>::type*);
+        cpptoml::make_value<>(T&& val);
 
     friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(T& val, typename value_traits<T>::type*);
+        cpptoml::make_value<>(T& val);
 
     friend std::shared_ptr<typename value_traits<T>::type>
-        cpptoml::make_value<>(const T& val, typename value_traits<T>::type*);
+        cpptoml::make_value<>(const T& val);
 
   public:
     static_assert(valid_value<T>::value, "invalid value type");
@@ -337,8 +336,7 @@ class value : public base
 };
 
 template <class T>
-inline std::shared_ptr<typename value_traits<T>::type>
-    make_value(T&& val, typename value_traits<T>::type*)
+inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 {
     typedef std::shared_ptr<typename value_traits<T>::type> pointer_type;
     return pointer_type(
