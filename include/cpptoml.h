@@ -157,9 +157,43 @@ inline std::ostream& operator<<(std::ostream& os, const datetime& dt)
 template <class T>
 class value;
 
+template <class T>
+struct valid_value
+{
+    const static bool value
+        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
+          || std::is_same<T, double>::value || std::is_same<T, bool>::value
+          || std::is_same<T, datetime>::value;
+};
+
+template <class T, bool Valid = valid_value<typename std::decay<T>::type>::value
+                                || std::is_convertible<T, std::string>::value>
+struct value_traits;
+
+template <class T>
+struct value_traits<T, true>
+{
+    const static bool valid = valid_value<typename std::decay<T>::type>::value
+                              || std::is_convertible<T, std::string>::value;
+
+    using value_type = typename std::
+        conditional<valid_value<typename std::decay<T>::type>::value,
+                    typename std::decay<T>::type, std::string>::type;
+
+    using type = value<value_type>;
+};
+
 class array;
 class table;
 class table_array;
+
+template <class T>
+inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val);
+inline std::shared_ptr<array> make_array();
+template <class T>
+inline std::shared_ptr<T> make_element();
+inline std::shared_ptr<table> make_table();
+inline std::shared_ptr<table_array> make_table_array();
 
 /**
  * A generic base TOML value used for type erasure.
@@ -240,32 +274,12 @@ class base : public std::enable_shared_from_this<base>
 
     template <class Visitor, class... Args>
     void accept(Visitor&& visitor, Args&&... args) const;
-};
 
-template <class T>
-struct valid_value
-{
-    const static bool value
-        = std::is_same<T, std::string>::value || std::is_same<T, int64_t>::value
-          || std::is_same<T, double>::value || std::is_same<T, bool>::value
-          || std::is_same<T, datetime>::value;
-};
-
-template <class T, bool Valid = valid_value<typename std::decay<T>::type>::value
-                                || std::is_convertible<T, std::string>::value>
-struct value_traits;
-
-template <class T>
-struct value_traits<T, true>
-{
-    const static bool valid = valid_value<typename std::decay<T>::type>::value
-                              || std::is_convertible<T, std::string>::value;
-
-    using value_type = typename std::
-        conditional<valid_value<typename std::decay<T>::type>::value,
-                    typename std::decay<T>::type, std::string>::type;
-
-    using type = value<value_type>;
+  protected:
+    base()
+    {
+        // nothing
+    }
 };
 
 /**
@@ -274,15 +288,12 @@ struct value_traits<T, true>
 template <class T>
 class value : public base
 {
+    template <class U>
+    friend std::shared_ptr<typename value_traits<U>::type>
+        cpptoml::make_value(U&& val);
+
   public:
     static_assert(valid_value<T>::value, "invalid value type");
-
-    /**
-     * Constructs a value from the given data.
-     */
-    value(const T& val) : data_(val)
-    {
-    }
 
     bool is_value() const override
     {
@@ -307,7 +318,31 @@ class value : public base
 
   private:
     T data_;
+
+    /**
+     * Constructs a value from the given data.
+     */
+    value(const T& val) : data_(val)
+    {
+    }
+
+    value(const value& val) = delete;
+    value& operator=(const value& val) = delete;
 };
+
+template <class T>
+std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
+{
+    using value_type = typename value_traits<T>::type;
+    struct make_shared_enabler : public value_type
+    {
+        make_shared_enabler(T&& val) : value_type(std::forward<T>(val))
+        {
+            // nothing
+        }
+    };
+    return std::make_shared<make_shared_enabler>(std::forward<T>(val));
+}
 
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
@@ -326,7 +361,7 @@ inline std::shared_ptr<value<double>> base::as()
         return v;
 
     if (auto v = std::dynamic_pointer_cast<value<int64_t>>(shared_from_this()))
-        return std::make_shared<value<double>>(v->get());
+        return make_value<double>(v->get());
 
     return nullptr;
 }
@@ -352,7 +387,7 @@ inline std::shared_ptr<const value<double>> base::as() const
     {
         // the below has to be a non-const value<double> due to a bug in
         // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
-        return std::make_shared<value<double>>(v->get());
+        return make_value<double>(v->get());
     }
 
     return nullptr;
@@ -372,14 +407,7 @@ class array_exception : public std::runtime_error
 class array : public base
 {
   public:
-    array() = default;
-
-    template <class InputIterator>
-    array(InputIterator begin, InputIterator end)
-        : values_{begin, end}
-    {
-        // nothing
-    }
+    friend std::shared_ptr<array> make_array();
 
     virtual bool is_array() const override
     {
@@ -512,8 +540,7 @@ class array : public base
     template <class T>
     void push_back(T&& val, typename value_traits<T>::type* = 0)
     {
-        push_back(std::make_shared<typename value_traits<T>::type>(
-            std::forward<T>(val)));
+        push_back(make_value(std::forward<T>(val)));
     }
 
     /**
@@ -554,9 +581,7 @@ class array : public base
     iterator insert(iterator position, T&& val,
                     typename value_traits<T>::type* = 0)
     {
-        return insert(position,
-                      std::make_shared<typename value_traits<T>::type>(
-                          std::forward<T>(val)));
+        return insert(position, make_value(std::forward<T>(val)));
     }
 
     /**
@@ -576,14 +601,46 @@ class array : public base
     }
 
   private:
+    array() = default;
+
+    template <class InputIterator>
+    array(InputIterator begin, InputIterator end)
+        : values_{begin, end}
+    {
+        // nothing
+    }
+
+    array(const array& obj) = delete;
+    array& operator=(const array& obj) = delete;
+
     std::vector<std::shared_ptr<base>> values_;
 };
+
+inline std::shared_ptr<array> make_array()
+{
+    struct make_shared_enabler : public array
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
+}
+
+template <>
+inline std::shared_ptr<array> make_element<array>()
+{
+    return make_array();
+}
 
 class table;
 
 class table_array : public base
 {
     friend class table;
+    friend std::shared_ptr<table_array> make_table_array();
 
   public:
     /**
@@ -664,8 +721,35 @@ class table_array : public base
     }
 
   private:
+    table_array()
+    {
+        // nothing
+    }
+
+    table_array(const table_array& obj) = delete;
+    table_array& operator=(const table_array& rhs) = delete;
+
     std::vector<std::shared_ptr<table>> array_;
 };
+
+inline std::shared_ptr<table_array> make_table_array()
+{
+    struct make_shared_enabler : public table_array
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
+}
+
+template <>
+inline std::shared_ptr<table_array> make_element<table_array>()
+{
+    return make_table_array();
+}
 
 /**
  * Represents a TOML keytable.
@@ -674,6 +758,8 @@ class table : public base
 {
   public:
     friend class table_array;
+    friend std::shared_ptr<table> make_table();
+
     /**
      * tables can be iterated over.
      */
@@ -875,11 +961,18 @@ class table : public base
     void insert(const std::string& key, T&& val,
                 typename value_traits<T>::type* = 0)
     {
-        insert(key, std::make_shared<typename value_traits<T>::type>(
-                        std::forward<T>(val)));
+        insert(key, make_value(std::forward<T>(val)));
     }
 
   private:
+    table()
+    {
+        // nothing
+    }
+
+    table(const table& obj) = delete;
+    table& operator=(const table& rhs) = delete;
+
     std::vector<std::string> split(const std::string& value,
                                    char separator) const
     {
@@ -930,6 +1023,25 @@ class table : public base
     string_to_base_map map_;
 };
 
+std::shared_ptr<table> make_table()
+{
+    struct make_shared_enabler : public table
+    {
+        make_shared_enabler()
+        {
+            // nothing
+        }
+    };
+
+    return std::make_shared<make_shared_enabler>();
+}
+
+template <>
+inline std::shared_ptr<table> make_element<table>()
+{
+    return make_table();
+}
+
 /**
  * Exception class for all TOML parsing errors.
  */
@@ -965,11 +1077,11 @@ class parser
      * Parses the stream this parser was created on until EOF.
      * @throw parse_exception if there are errors in parsing
      */
-    table parse()
+    std::shared_ptr<table> parse()
     {
-        table root;
+        std::shared_ptr<table> root = make_table();
 
-        table* curr_table = &root;
+        table* curr_table = root.get();
 
         while (std::getline(input_, line_))
         {
@@ -981,7 +1093,7 @@ class parser
                 continue;
             if (*it == '[')
             {
-                curr_table = &root;
+                curr_table = root.get();
                 parse_table(it, end, curr_table);
             }
             else
@@ -1058,7 +1170,7 @@ class parser
             else
             {
                 inserted = true;
-                curr_table->insert(part, std::make_shared<table>());
+                curr_table->insert(part, make_table());
                 curr_table = static_cast<table*>(curr_table->get(part).get());
             }
             consume_whitespace(it, end);
@@ -1132,7 +1244,7 @@ class parser
                         throw_parse_exception("Key " + full_ta_name
                                               + " is not a table array");
                     auto v = b->as_table_array();
-                    v->get().push_back(std::make_shared<table>());
+                    v->get().push_back(make_table());
                     curr_table = v->get().back().get();
                 }
                 // otherwise, just keep traversing down the key name
@@ -1157,17 +1269,17 @@ class parser
                 // add keys to next
                 if (it != end && *it == ']')
                 {
-                    curr_table->insert(part, std::make_shared<table_array>());
+                    curr_table->insert(part, make_table_array());
                     auto arr = std::static_pointer_cast<table_array>(
                         curr_table->get(part));
-                    arr->get().push_back(std::make_shared<table>());
+                    arr->get().push_back(make_table());
                     curr_table = arr->get().back().get();
                 }
                 // otherwise, create the implicitly defined table and move
                 // down to it
                 else
                 {
-                    curr_table->insert(part, std::make_shared<table>());
+                    curr_table->insert(part, make_table());
                     curr_table
                         = static_cast<table*>(curr_table->get(part).get());
                 }
@@ -1372,8 +1484,7 @@ class parser
                 return parse_multiline_string(it, end, delim);
             }
         }
-        return std::make_shared<value<std::string>>(
-            string_literal(it, end, delim));
+        return make_value<std::string>(string_literal(it, end, delim));
     }
 
     std::shared_ptr<value<std::string>>
@@ -1432,7 +1543,7 @@ class parser
                         && *check++ == delim)
                     {
                         it = check;
-                        ret = std::make_shared<value<std::string>>(ss.str());
+                        ret = make_value<std::string>(ss.str());
                         break;
                     }
                 }
@@ -1606,7 +1717,7 @@ class parser
         it = end;
         try
         {
-            return std::make_shared<value<int64_t>>(std::stoll(v));
+            return make_value<int64_t>(std::stoll(v));
         }
         catch (const std::invalid_argument& ex)
         {
@@ -1628,7 +1739,7 @@ class parser
         it = end;
         try
         {
-            return std::make_shared<value<double>>(std::stold(v));
+            return make_value<double>(std::stold(v));
         }
         catch (const std::invalid_argument& ex)
         {
@@ -1652,9 +1763,9 @@ class parser
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
-            return std::make_shared<value<bool>>(true);
+            return make_value<bool>(true);
         else if (v == "false")
-            return std::make_shared<value<bool>>(false);
+            return make_value<bool>(false);
         else
             throw_parse_exception("Attempted to parse invalid boolean value");
     }
@@ -1738,7 +1849,7 @@ class parser
         if (it != date_end)
             throw_parse_exception("Malformed date");
 
-        return std::make_shared<value<datetime>>(dt);
+        return make_value(dt);
     }
 
     std::shared_ptr<base> parse_array(std::string::iterator& it,
@@ -1759,7 +1870,7 @@ class parser
         if (*it == ']')
         {
             ++it;
-            return std::make_shared<array>();
+            return make_array();
         }
 
         auto val_end = std::find_if(it, end, [](char c)
@@ -1792,7 +1903,7 @@ class parser
     std::shared_ptr<array> parse_value_array(std::string::iterator& it,
                                              std::string::iterator& end)
     {
-        auto arr = std::make_shared<array>();
+        auto arr = make_array();
         while (it != end && *it != ']')
         {
             auto value = parse_value(it, end);
@@ -1816,7 +1927,7 @@ class parser
                                                std::string::iterator& it,
                                                std::string::iterator& end)
     {
-        auto arr = std::make_shared<Object>();
+        auto arr = make_element<Object>();
 
         while (it != end && *it != ']')
         {
@@ -1843,7 +1954,7 @@ class parser
     std::shared_ptr<table> parse_inline_table(std::string::iterator& it,
                                               std::string::iterator& end)
     {
-        auto tbl = std::make_shared<table>();
+        auto tbl = make_table();
         do
         {
             ++it;
@@ -1936,7 +2047,7 @@ class parser
  * Utility function to parse a file as a TOML file. Returns the root table.
  * Throws a parse_exception if the file cannot be opened.
  */
-inline table parse_file(const std::string& filename)
+inline std::shared_ptr<table> parse_file(const std::string& filename)
 {
 #if defined(BOOST_NOWIDE_FSTREAM_INCLUDED_HPP)
     boost::nowide::ifstream file{filename.c_str()};
