@@ -492,7 +492,7 @@ class array : public base
         std::vector<std::shared_ptr<array>> result(values_.size());
 
         std::transform(values_.begin(), values_.end(), result.begin(),
-                       [&](std::shared_ptr<base> v)
+                       [&](std::shared_ptr<base> v) -> std::shared_ptr<array>
                        {
             if (v->is_array())
                 return std::static_pointer_cast<array>(v);
