@@ -964,6 +964,14 @@ class table : public base
         insert(key, make_value(std::forward<T>(val)));
     }
 
+    /**
+     * Removes an element from the table.
+     */
+    void erase(const std::string& key)
+    {
+        map_.erase(key);
+    }
+
   private:
     table()
     {
