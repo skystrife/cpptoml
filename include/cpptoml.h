@@ -1662,7 +1662,7 @@ class parser
 
         auto eat_sign = [&]()
         {
-            if (*check_it == '-' || *check_it == '+')
+            if (check_it != end && (*check_it == '-' || *check_it == '+'))
                 ++check_it;
         };
 
@@ -1702,7 +1702,8 @@ class parser
 
             eat_numbers();
 
-            if (!is_exp && (*check_it == 'e' || *check_it == 'E'))
+            if (!is_exp && check_it != end
+                && (*check_it == 'e' || *check_it == 'E'))
             {
                 ++check_it;
                 eat_sign();
