@@ -290,7 +290,7 @@ class value : public base
 {
     template <class U>
     friend std::shared_ptr<typename value_traits<U>::type>
-        cpptoml::make_value(U&& val);
+    cpptoml::make_value(U&& val);
 
   public:
     static_assert(valid_value<T>::value, "invalid value type");
@@ -477,8 +477,8 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v)
                        {
-            return v->as<T>();
-        });
+                           return v->as<T>();
+                       });
 
         return result;
     }
@@ -494,10 +494,10 @@ class array : public base
         std::transform(values_.begin(), values_.end(), result.begin(),
                        [&](std::shared_ptr<base> v) -> std::shared_ptr<array>
                        {
-            if (v->is_array())
-                return std::static_pointer_cast<array>(v);
-            return std::shared_ptr<array>{};
-        });
+                           if (v->is_array())
+                               return std::static_pointer_cast<array>(v);
+                           return std::shared_ptr<array>{};
+                       });
 
         return result;
     }
@@ -897,7 +897,7 @@ class table : public base
      * "qualified keys".
      */
     std::shared_ptr<table_array>
-        get_table_array_qualified(const std::string& key) const
+    get_table_array_qualified(const std::string& key) const
     {
         if (!contains_qualified(key))
             return nullptr;
@@ -1151,8 +1151,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -1225,8 +1225,8 @@ class parser
         {
             auto part = parse_key(it, end, [](char c)
                                   {
-                return c == '.' || c == ']';
-            });
+                                      return c == '.' || c == ']';
+                                  });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -1311,8 +1311,8 @@ class parser
     {
         auto key = parse_key(it, end, [](char c)
                              {
-            return c == '=';
-        });
+                                 return c == '=';
+                             });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1358,19 +1358,23 @@ class parser
             throw_parse_exception("Bare key " + key + " cannot contain #");
         }
 
-        if (std::find_if(it, key_end, [](char c)
+        if (std::find_if(it, key_end,
+                         [](char c)
                          {
-                return c == ' ' || c == '\t';
-            }) != key_end)
+                             return c == ' ' || c == '\t';
+                         })
+            != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain whitespace");
         }
 
-        if (std::find_if(it, key_end, [](char c)
+        if (std::find_if(it, key_end,
+                         [](char c)
                          {
-                return c == '[' || c == ']';
-            }) != key_end)
+                             return c == '[' || c == ']';
+                         })
+            != key_end)
         {
             throw_parse_exception("Bare key " + key
                                   + " cannot contain '[' or ']'");
@@ -1496,8 +1500,8 @@ class parser
     }
 
     std::shared_ptr<value<std::string>>
-        parse_multiline_string(std::string::iterator& it,
-                               std::string::iterator& end, char delim)
+    parse_multiline_string(std::string::iterator& it,
+                           std::string::iterator& end, char delim)
     {
         std::stringstream ss;
 
@@ -1509,8 +1513,8 @@ class parser
         bool consuming = false;
         std::shared_ptr<value<std::string>> ret;
 
-        auto handle_line =
-            [&](std::string::iterator& it, std::string::iterator& end)
+        auto handle_line
+            = [&](std::string::iterator& it, std::string::iterator& end)
         {
             if (consuming)
             {
@@ -1765,10 +1769,11 @@ class parser
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
                                             const std::string::iterator& end)
     {
-        auto boolend = std::find_if(it, end, [](char c)
-                                    {
-            return c == ' ' || c == '\t' || c == '#';
-        });
+        auto boolend
+            = std::find_if(it, end, [](char c)
+                           {
+                               return c == ' ' || c == '\t' || c == '#';
+                           });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1784,13 +1789,14 @@ class parser
     {
         return std::find_if(it, end, [this](char c)
                             {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
-        });
+                                return !is_number(c) && c != 'T' && c != 'Z'
+                                       && c != ':' && c != '-' && c != '+'
+                                       && c != '.';
+                            });
     }
 
     std::shared_ptr<value<datetime>>
-        parse_date(std::string::iterator& it, const std::string::iterator& end)
+    parse_date(std::string::iterator& it, const std::string::iterator& end)
     {
         auto date_end = find_end_of_date(it, end);
 
@@ -1884,8 +1890,8 @@ class parser
 
         auto val_end = std::find_if(it, end, [](char c)
                                     {
-            return c == ',' || c == ']' || c == '#';
-        });
+                                        return c == ',' || c == ']' || c == '#';
+                                    });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
@@ -2336,7 +2342,8 @@ class toml_writer
 
                 if (path_[i].find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
                                                "fghijklmnopqrstuvwxyz0123456789"
-                                               "_-") == std::string::npos)
+                                               "_-")
+                    == std::string::npos)
                 {
                     write(path_[i]);
                 }
@@ -2369,7 +2376,8 @@ class toml_writer
 
             if (path_.back().find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"
                                                "fghijklmnopqrstuvwxyz0123456789"
-                                               "_-") == std::string::npos)
+                                               "_-")
+                == std::string::npos)
             {
                 write(path_.back());
             }
