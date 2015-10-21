@@ -1747,7 +1747,7 @@ class parser
         it = end;
         try
         {
-            return make_value<double>(std::stold(v));
+            return make_value<double>(std::stod(v));
         }
         catch (const std::invalid_argument& ex)
         {
