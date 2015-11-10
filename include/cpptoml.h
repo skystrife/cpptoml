@@ -288,12 +288,23 @@ class base : public std::enable_shared_from_this<base>
 template <class T>
 class value : public base
 {
+    struct make_shared_enabler
+    {
+        // nothing; this is a private key accessible only to friends
+    };
+
     template <class U>
     friend std::shared_ptr<typename value_traits<U>::type>
     cpptoml::make_value(U&& val);
 
   public:
     static_assert(valid_value<T>::value, "invalid value type");
+
+    value(const make_shared_enabler&, const T& val) : value(val)
+    {
+        // nothing; note that users cannot actually invoke this function
+        // because they lack access to the make_shared_enabler.
+    }
 
     bool is_value() const override
     {
@@ -334,14 +345,8 @@ template <class T>
 std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 {
     using value_type = typename value_traits<T>::type;
-    struct make_shared_enabler : public value_type
-    {
-        make_shared_enabler(T&& val) : value_type(std::forward<T>(val))
-        {
-            // nothing
-        }
-    };
-    return std::make_shared<make_shared_enabler>(std::forward<T>(val));
+    using enabler = typename value_type::make_shared_enabler;
+    return std::make_shared<value_type>(enabler{}, std::forward<T>(val));
 }
 
 template <class T>
