@@ -173,8 +173,6 @@ if (CPPTOML_HAS_STD_REGEX)
     target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_REGEX=1)
 endif()
 
-target_link_libraries(cpptoml INTERFACE ${LIBCXX_LIBRARY} ${CXXABI_LIBRARY})
-
 add_executable(parse parse.cpp)
 target_link_libraries(parse cpptoml)
 
