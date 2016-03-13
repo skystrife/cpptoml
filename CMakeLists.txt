@@ -4,6 +4,9 @@ project(cpptoml)
 include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
+include(CMakePushCheckState)
+
+cmake_push_check_state()
 
 option(ENABLE_LIBCXX "Use libc++ for the C++ standard library" ON)
 
@@ -25,6 +28,8 @@ if(UNIX OR MINGW)
     endif()
   endif()
 endif()
+
+set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${CMAKE_CXX11_STANDARD_COMPILE_OPTION}")
 
 check_cxx_source_compiles("
 #include <iomanip>
@@ -54,6 +59,8 @@ int main() {
     date.tm_sec = stoi(results[6]);
     return 0;
 }" CPPTOML_HAS_STD_REGEX)
+
+cmake_pop_check_state()
 
 add_library(cpptoml INTERFACE)
 
