@@ -16,8 +16,6 @@ Alternatives:
 ## Build Status
 [![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
 
-[![Build Status](https://webapi.biicode.com/v1/badges/skystrife/skystrife/cpptoml/master)](https://www.biicode.com/skystrife/cpptoml)
-
 ## Test Results
 The following two tests are the only failing tests from [the toml-test
 suite][toml-test].
@@ -53,34 +51,9 @@ cmake ../
 make
 ```
 
-Compile it on Linux, OS X and Windows (MinGW 4.9 and Visual Studio 12) with
-[biicode][biicode]:
-
-```
-bii init -L
-bii build
-```
-
 # Example Usage
 See the root directory files `parse.cpp` and `parse_stdin.cpp` for an
 example usage.
-
-# Use it in biicode
-
-``bii init -L``
-
-Fill your ``biicode.conf`` file just like this:
-
-```
-[requirements]
-    skystrife/cpptoml: 0
-
-[includes]
-     cpptoml.h :skystrife/cpptoml/include
-```
-
-``bii build`` and you're ready to go! (An example block is available here:
-[amalulla/parse-toml](https://www.biicode.com/amalulla/parse-toml))
 
 [currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md
 [toml]: https://github.com/toml-lang/toml
