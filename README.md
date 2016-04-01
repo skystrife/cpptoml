@@ -8,10 +8,12 @@ characters in strings. This includes support for the new DateTime format,
 inline tables, multi-line basic and raw strings, and digit separators.
 
 Alternatives:
-- [ctoml][ctoml] and [tinytoml][tinytoml] are both C++11 implementations of
-  a TOML parser, but only support v0.2.0.
+- [ctoml][ctoml] is a C++11 implementation of a TOML parser, but only
+  supports v0.2.0.
 - [libtoml][libtoml] is a C implementation of a TOML parser, which can be
   linked to from your C++ programs easily. It supports only v0.2.0 also.
+- [tinytoml][tinytoml] is a C++11 implementation of a TOML parser, which
+  also supports v0.4.0 as of November 2015.
 
 ## Build Status
 [![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
