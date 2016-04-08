@@ -1,7 +1,7 @@
 # cpptoml
 A header-only library for parsing [TOML][toml] configuration files.
 
-Targets: [TOML v0.4.0][currver]
+Targets: [TOML v0.4.0][currver] as of February 2015.
 
 It is reasonably conforming, with the exception of unicode escape
 characters in strings. This includes support for the new DateTime format,
@@ -11,7 +11,8 @@ Alternatives:
 - [ctoml][ctoml] is a C++11 implementation of a TOML parser, but only
   supports v0.2.0.
 - [libtoml][libtoml] is a C implementation of a TOML parser, which can be
-  linked to from your C++ programs easily. It supports only v0.2.0 also.
+  linked to from your C++ programs easily. As of April 2016, it supports
+  v0.4.0.
 - [tinytoml][tinytoml] is a C++11 implementation of a TOML parser, which
   also supports v0.4.0 as of November 2015.
 
