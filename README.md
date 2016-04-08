@@ -180,7 +180,7 @@ for (const auto& val : vals)
 
 For nested arrays, it looks like the following:
 
-```
+```cpp
 auto nested = config->get_array("mixed-arr")->nested_array();
 
 auto ints = nested[0]->array_of<int64_t>();
