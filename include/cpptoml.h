@@ -1777,7 +1777,7 @@ class parser
         auto boolend
             = std::find_if(it, end, [](char c)
                            {
-                               return c == ' ' || c == '\t' || c == '#';
+                               return c == ' ' || c == '\t' || c == '#' || c == ',' || c == ']';
                            });
         std::string v{it, boolend};
         it = boolend;
@@ -1908,6 +1908,8 @@ class parser
                 return parse_value_array<double>(it, end);
             case parse_type::DATE:
                 return parse_value_array<datetime>(it, end);
+            case parse_type::BOOL:
+                return parse_value_array<bool>(it, end);
             case parse_type::ARRAY:
                 return parse_object_array<array>(&parser::parse_array, '[', it,
                                                  end);
