@@ -352,9 +352,7 @@ std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
 {
-    if (auto v = std::dynamic_pointer_cast<value<T>>(shared_from_this()))
-        return v;
-    return nullptr;
+    return std::dynamic_pointer_cast<value<T>>(shared_from_this());
 }
 
 // special case value<double> to allow getting an integer parameter as a
@@ -374,9 +372,7 @@ inline std::shared_ptr<value<double>> base::as()
 template <class T>
 inline std::shared_ptr<const value<T>> base::as() const
 {
-    if (auto v = std::dynamic_pointer_cast<const value<T>>(shared_from_this()))
-        return v;
-    return nullptr;
+    return std::dynamic_pointer_cast<const value<T>>(shared_from_this());
 }
 
 // special case value<double> to allow getting an integer parameter as a
