@@ -34,8 +34,6 @@ install:
   - sh cmake-3.2.2-Linux-x86_64.sh --prefix=$HOME --exclude-subdir
     # use g++-4.8 if g++ is our compiler
   - if [ "`echo $CXX`" == "g++" ]; then export CXX=g++-4.8; fi
-  - if [ "`echo $CXX`" == "clang++" ]; then dpkg -L clang-3.6; fi
-  - if [ "`echo $CXX`" == "clang++" ]; then dpkg -L llvm-3.6-dev; fi
   # install libc++ if tests are run with clang++
   - if [ "`echo $CXX`" == "clang++" ]; then export CXX=clang++-3.6 && travis/install_libcxx.sh; fi
 
