@@ -72,6 +72,7 @@ You can find basic values like so:
 
 ```cpp
 auto val = config->get_as<int64_t>("my-int");
+// val is a cpptoml::option<int64_t>
 
 if (val)
 {
@@ -169,27 +170,33 @@ To obtain an array of values, you can do the following:
 ```cpp
 auto config = cpptoml::parse_file("config.toml");
 
-auto vals = config->get_array("arr")->array_of<int64_t>();
+auto vals = config->get_array_of<int64_t>("arr");
+// vals is a cpptoml::option<std::vector<int64_t>>
 
-for (const auto& val : vals)
+for (const auto& val : *vals)
 {
-    // *val is a cpptoml::value<T>
-    // val may be null if the key "arr" didn't contain integers
+    // val is an int64_t
 }
 ```
+
+`get_array_of` will return an `option<vector<T>>`, which will be empty if
+the key does not exist, is not of the array type, or contains values that
+are not of type `T`.
 
 For nested arrays, it looks like the following:
 
 ```cpp
-auto nested = config->get_array("mixed-arr")->nested_array();
+auto nested = config->get_array_of<cpptoml::array>("mixed-arr");
 
-auto ints = nested[0]->array_of<int64_t>();
-auto strings = nested[1]->array_of<std::string>();
-auto doubles = nested[2]->array_of<double>();
+auto ints = (*nested)[0]->get_array_of<int64_t>();
+// ints is a cpptoml::option<std::vector<int64_t>>
+
+auto strings = (*nested)[1]->get_array_of<std::string>();
+auto doubles = (*nested)[2]->get_array_of<double>();
 ```
 
-There is also a `get_array_qualified` for simplifying arrays located inside
-nested tables.
+There is also a `get_qualified_array_of` for simplifying arrays located
+inside nested tables.
 
 ## Arrays of Tables
 Suppose you had a configuration file like the following:

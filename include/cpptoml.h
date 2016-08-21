@@ -188,6 +188,18 @@ class table;
 class table_array;
 
 template <class T>
+struct array_of_trait
+{
+    using return_type = option<std::vector<T>>;
+};
+
+template <>
+struct array_of_trait<array>
+{
+    using return_type = option<std::vector<std::shared_ptr<array>>>;
+};
+
+template <class T>
 inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val);
 inline std::shared_ptr<array> make_array();
 template <class T>
@@ -485,6 +497,27 @@ class array : public base
     }
 
     /**
+     * Obtains a option<vector<T>>. The option will be empty if the array
+     * contains values that are not of type T.
+     */
+    template <class T>
+    inline typename array_of_trait<T>::return_type get_array_of() const
+    {
+        std::vector<T> result;
+        result.reserve(values_.size());
+
+        for (const auto& val : values_)
+        {
+            if (auto v = val->as<T>())
+                result.push_back(v->get());
+            else
+                return {};
+        }
+
+        return {std::move(result)};
+    }
+
+    /**
      * Obtains an array of arrays. Note that elements may be nullptr
      * if they cannot be converted to a array.
      */
@@ -634,6 +667,28 @@ template <>
 inline std::shared_ptr<array> make_element<array>()
 {
     return make_array();
+}
+
+/**
+ * Obtains a option<vector<T>>. The option will be empty if the array
+ * contains values that are not of type T.
+ */
+template <>
+inline typename array_of_trait<array>::return_type
+array::get_array_of<array>() const
+{
+    std::vector<std::shared_ptr<array>> result;
+    result.reserve(values_.size());
+
+    for (const auto& val : values_)
+    {
+        if (auto v = val->as_array())
+            result.push_back(v);
+        else
+            return {};
+    }
+
+    return {std::move(result)};
 }
 
 class table;
@@ -947,6 +1002,69 @@ class table : public base
     }
 
     /**
+     * Helper function that attempts to get an array of values of a given
+     * type corresponding to the template parameter for a given key.
+     *
+     * If the key doesn't exist, doesn't exist as an array type, or one or
+     * more keys inside the array type are not of type T, an empty option
+     * is returned. Otherwise, an option containing a vector of the values
+     * is returned.
+     */
+    template <class T>
+    inline typename array_of_trait<T>::return_type
+    get_array_of(const std::string& key) const
+    {
+        if (auto v = get_array(key))
+        {
+            std::vector<T> result;
+            result.reserve(v->get().size());
+
+            for (const auto& b : v->get())
+            {
+                if (auto val = b->as<T>())
+                    result.push_back(val->get());
+                else
+                    return {};
+            }
+            return {std::move(result)};
+        }
+
+        return {};
+    }
+
+    /**
+     * Helper function that attempts to get an array of values of a given
+     * type corresponding to the template parameter for a given key. Will
+     * resolve "qualified keys".
+     *
+     * If the key doesn't exist, doesn't exist as an array type, or one or
+     * more keys inside the array type are not of type T, an empty option
+     * is returned. Otherwise, an option containing a vector of the values
+     * is returned.
+     */
+    template <class T>
+    inline typename array_of_trait<T>::return_type
+    get_qualified_array_of(const std::string& key) const
+    {
+        if (auto v = get_array_qualified(key))
+        {
+            std::vector<T> result;
+            result.reserve(v->get().size());
+
+            for (const auto& b : v->get())
+            {
+                if (auto val = b->as<T>())
+                    result.push_back(val->get());
+                else
+                    return {};
+            }
+            return {std::move(result)};
+        }
+
+        return {};
+    }
+
+    /**
      * Adds an element to the keytable.
      */
     void insert(const std::string& key, const std::shared_ptr<base>& value)
@@ -1031,6 +1149,70 @@ class table : public base
 
     string_to_base_map map_;
 };
+
+/**
+ * Helper function that attempts to get an array of arrays for a given
+ * key.
+ *
+ * If the key doesn't exist, doesn't exist as an array type, or one or
+ * more keys inside the array type are not of type T, an empty option
+ * is returned. Otherwise, an option containing a vector of the values
+ * is returned.
+ */
+template <>
+inline typename array_of_trait<array>::return_type
+table::get_array_of<array>(const std::string& key) const
+{
+    if (auto v = get_array(key))
+    {
+        std::vector<std::shared_ptr<array>> result;
+        result.reserve(v->get().size());
+
+        for (const auto& b : v->get())
+        {
+            if (auto val = b->as_array())
+                result.push_back(val);
+            else
+                return {};
+        }
+
+        return {std::move(result)};
+    }
+
+    return {};
+}
+
+/**
+ * Helper function that attempts to get an array of arrays for a given
+ * key. Will resolve "qualified keys".
+ *
+ * If the key doesn't exist, doesn't exist as an array type, or one or
+ * more keys inside the array type are not of type T, an empty option
+ * is returned. Otherwise, an option containing a vector of the values
+ * is returned.
+ */
+template <>
+inline typename array_of_trait<array>::return_type
+table::get_qualified_array_of<array>(const std::string& key) const
+{
+    if (auto v = get_array(key))
+    {
+        std::vector<std::shared_ptr<array>> result;
+        result.reserve(v->get().size());
+
+        for (const auto& b : v->get())
+        {
+            if (auto val = b->as_array())
+                result.push_back(val);
+            else
+                return {};
+        }
+
+        return {std::move(result)};
+    }
+
+    return {};
+}
 
 std::shared_ptr<table> make_table()
 {
