@@ -20,11 +20,11 @@
 #if CPPTOML_HAS_STD_REGEX
 #include <regex>
 #endif
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <map>
 #include <vector>
 
 namespace cpptoml
@@ -488,10 +488,7 @@ class array : public base
         std::vector<std::shared_ptr<value<T>>> result(values_.size());
 
         std::transform(values_.begin(), values_.end(), result.begin(),
-                       [&](std::shared_ptr<base> v)
-                       {
-                           return v->as<T>();
-                       });
+                       [&](std::shared_ptr<base> v) { return v->as<T>(); });
 
         return result;
     }
@@ -526,8 +523,7 @@ class array : public base
         std::vector<std::shared_ptr<array>> result(values_.size());
 
         std::transform(values_.begin(), values_.end(), result.begin(),
-                       [&](std::shared_ptr<base> v) -> std::shared_ptr<array>
-                       {
+                       [&](std::shared_ptr<base> v) -> std::shared_ptr<array> {
                            if (v->is_array())
                                return std::static_pointer_cast<array>(v);
                            return std::shared_ptr<array>{};
@@ -638,8 +634,7 @@ class array : public base
     array() = default;
 
     template <class InputIterator>
-    array(InputIterator begin, InputIterator end)
-        : values_{begin, end}
+    array(InputIterator begin, InputIterator end) : values_{begin, end}
     {
         // nothing
     }
@@ -1332,10 +1327,8 @@ class parser
         bool inserted = false;
         while (it != end && *it != ']')
         {
-            auto part = parse_key(it, end, [](char c)
-                                  {
-                                      return c == '.' || c == ']';
-                                  });
+            auto part = parse_key(it, end,
+                                  [](char c) { return c == '.' || c == ']'; });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
@@ -1373,11 +1366,11 @@ class parser
         // table already existed
         if (!inserted)
         {
-            auto is_value = [](const std::pair<const std::string&,
-                                               const std::shared_ptr<base>&>& p)
-            {
-                return p.second->is_value();
-            };
+            auto is_value
+                = [](const std::pair<const std::string&,
+                                     const std::shared_ptr<base>&>& p) {
+                      return p.second->is_value();
+                  };
 
             // if there are any values, we can't add values to this table
             // since it has already been defined. If there aren't any
@@ -1406,10 +1399,8 @@ class parser
         std::string full_ta_name;
         while (it != end && *it != ']')
         {
-            auto part = parse_key(it, end, [](char c)
-                                  {
-                                      return c == '.' || c == ']';
-                                  });
+            auto part = parse_key(it, end,
+                                  [](char c) { return c == '.' || c == ']'; });
 
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
@@ -1492,10 +1483,7 @@ class parser
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
                          table* curr_table)
     {
-        auto key = parse_key(it, end, [](char c)
-                             {
-                                 return c == '=';
-                             });
+        auto key = parse_key(it, end, [](char c) { return c == '='; });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (*it != '=')
@@ -1542,10 +1530,7 @@ class parser
         }
 
         if (std::find_if(it, key_end,
-                         [](char c)
-                         {
-                             return c == ' ' || c == '\t';
-                         })
+                         [](char c) { return c == ' ' || c == '\t'; })
             != key_end)
         {
             throw_parse_exception("Bare key " + key
@@ -1553,10 +1538,7 @@ class parser
         }
 
         if (std::find_if(it, key_end,
-                         [](char c)
-                         {
-                             return c == '[' || c == ']';
-                         })
+                         [](char c) { return c == '[' || c == ']'; })
             != key_end)
         {
             throw_parse_exception("Bare key " + key
@@ -1688,64 +1670,60 @@ class parser
     {
         std::stringstream ss;
 
-        auto is_ws = [](char c)
-        {
-            return c == ' ' || c == '\t';
-        };
+        auto is_ws = [](char c) { return c == ' ' || c == '\t'; };
 
         bool consuming = false;
         std::shared_ptr<value<std::string>> ret;
 
         auto handle_line
-            = [&](std::string::iterator& it, std::string::iterator& end)
-        {
-            if (consuming)
-            {
-                it = std::find_if_not(it, end, is_ws);
+            = [&](std::string::iterator& it, std::string::iterator& end) {
+                  if (consuming)
+                  {
+                      it = std::find_if_not(it, end, is_ws);
 
-                // whole line is whitespace
-                if (it == end)
-                    return;
-            }
+                      // whole line is whitespace
+                      if (it == end)
+                          return;
+                  }
 
-            consuming = false;
+                  consuming = false;
 
-            while (it != end)
-            {
-                auto check = it;
-                // handle escaped characters
-                if (delim == '"' && *it == '\\')
-                {
-                    // check if this is an actual escape sequence or a
-                    // whitespace escaping backslash
-                    ++check;
-                    if (check == end)
-                    {
-                        consuming = true;
-                        break;
-                    }
+                  while (it != end)
+                  {
+                      auto check = it;
+                      // handle escaped characters
+                      if (delim == '"' && *it == '\\')
+                      {
+                          // check if this is an actual escape sequence or a
+                          // whitespace escaping backslash
+                          ++check;
+                          if (check == end)
+                          {
+                              consuming = true;
+                              break;
+                          }
 
-                    ss << parse_escape_code(it, end);
-                    continue;
-                }
+                          ss << parse_escape_code(it, end);
+                          continue;
+                      }
 
-                // if we can end the string
-                if (std::distance(it, end) >= 3)
-                {
-                    auto check = it;
-                    // check for """
-                    if (*check++ == delim && *check++ == delim
-                        && *check++ == delim)
-                    {
-                        it = check;
-                        ret = make_value<std::string>(ss.str());
-                        break;
-                    }
-                }
+                      // if we can end the string
+                      if (std::distance(it, end) >= 3)
+                      {
+                          auto check = it;
+                          // check for """
+                          if (*check++ == delim && *check++ == delim
+                              && *check++ == delim)
+                          {
+                              it = check;
+                              ret = make_value<std::string>(ss.str());
+                              break;
+                          }
+                      }
 
-                ss << *it++;
-            }
-        };
+                      ss << *it++;
+                  }
+              };
 
         // handle the remainder of the current line
         handle_line(it, end);
@@ -1847,16 +1825,14 @@ class parser
         // determine if we are an integer or a float
         auto check_it = it;
 
-        auto eat_sign = [&]()
-        {
+        auto eat_sign = [&]() {
             if (check_it != end && (*check_it == '-' || *check_it == '+'))
                 ++check_it;
         };
 
         eat_sign();
 
-        auto eat_numbers = [&]()
-        {
+        auto eat_numbers = [&]() {
             auto beg = check_it;
             while (check_it != end && is_number(*check_it))
             {
@@ -1952,11 +1928,9 @@ class parser
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
                                             const std::string::iterator& end)
     {
-        auto boolend
-            = std::find_if(it, end, [](char c)
-                           {
-                               return c == ' ' || c == '\t' || c == '#' || c == ',' || c == ']';
-                           });
+        auto boolend = std::find_if(it, end, [](char c) {
+            return c == ' ' || c == '\t' || c == '#' || c == ',' || c == ']';
+        });
         std::string v{it, boolend};
         it = boolend;
         if (v == "true")
@@ -1970,12 +1944,10 @@ class parser
     std::string::iterator find_end_of_date(std::string::iterator it,
                                            std::string::iterator end)
     {
-        return std::find_if(it, end, [this](char c)
-                            {
-                                return !is_number(c) && c != 'T' && c != 'Z'
-                                       && c != ':' && c != '-' && c != '+'
-                                       && c != '.';
-                            });
+        return std::find_if(it, end, [this](char c) {
+            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
+                   && c != '+' && c != '.';
+        });
     }
 
     std::shared_ptr<value<datetime>>
@@ -1983,15 +1955,13 @@ class parser
     {
         auto date_end = find_end_of_date(it, end);
 
-        auto eat = [&](char c)
-        {
+        auto eat = [&](char c) {
             if (it == date_end || *it != c)
                 throw_parse_exception("Malformed date");
             ++it;
         };
 
-        auto eat_digits = [&](int len)
-        {
+        auto eat_digits = [&](int len) {
             int val = 0;
             for (int i = 0; i < len; ++i)
             {
@@ -2071,10 +2041,8 @@ class parser
             return make_array();
         }
 
-        auto val_end = std::find_if(it, end, [](char c)
-                                    {
-                                        return c == ',' || c == ']' || c == '#';
-                                    });
+        auto val_end = std::find_if(
+            it, end, [](char c) { return c == ',' || c == ']' || c == '#'; });
         parse_type type = determine_value_type(it, val_end);
         switch (type)
         {
