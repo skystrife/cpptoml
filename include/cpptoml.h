@@ -66,6 +66,11 @@ class option
         return value_;
     }
 
+    const T* operator->() const
+    {
+        return &value_;
+    }
+
     const T& value_or(const T& alternative) const
     {
         if (!empty_)
