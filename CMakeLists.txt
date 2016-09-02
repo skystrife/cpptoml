@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.1.0)
 project(cpptoml)
 
+set(cpptoml_VERSION 0.4.0)
+set(cpptoml_TOML_VERSION 0.4.0)
+
 include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
@@ -64,7 +67,9 @@ cmake_pop_check_state()
 
 add_library(cpptoml INTERFACE)
 
-target_include_directories(cpptoml INTERFACE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(cpptoml INTERFACE
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 
 if (LIBDL_LIBRARY)
   target_link_libraries(cpptoml INTERFACE ${LIBDL_LIBRARY})
@@ -96,6 +101,13 @@ set_target_properties(cpptoml-parser PROPERTIES
   CXX_EXTENSIONS OFF
   CXX_STANDARD_REQUIRED YES)
 
+add_executable(cpptoml-build build_toml.cpp)
+target_link_libraries(cpptoml-build cpptoml)
+set_target_properties(cpptoml-build PROPERTIES
+  CXX_STANDARD 11
+  CXX_EXTENSIONS OFF
+  CXX_STANDARD_REQUIRED YES)
+
 find_package(Doxygen)
 if(DOXYGEN_FOUND AND NOT TARGET doc)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cpptoml.doxygen.in
@@ -105,3 +117,25 @@ if(DOXYGEN_FOUND AND NOT TARGET doc)
     ${CMAKE_CURRENT_BINARY_DIR}/cpptoml.doxygen
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfigVersion.cmake
+  VERSION ${cpptoml_VERSION}
+  COMPATIBILITY SameMajorVersion)
+configure_file(cmake/cpptomlConfig.cmake
+               ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
+               COPYONLY)
+
+install(TARGETS cpptoml
+        EXPORT cpptoml-exports)
+install(FILES include/cpptoml.h
+        DESTINATION include)
+install(EXPORT cpptoml-exports
+        FILE cpptomlTargets.cmake
+        DESTINATION lib/cmake/cpptoml)
+install(FILES
+          ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfigVersion.cmake
+          ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
+        DESTINATION
+          lib/cmake/cpptoml)
