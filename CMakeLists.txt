@@ -139,3 +139,7 @@ install(FILES
           ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
         DESTINATION
           lib/cmake/cpptoml)
+
+export(EXPORT cpptoml-exports
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlTargets.cmake)
+export(PACKAGE cpptoml)
