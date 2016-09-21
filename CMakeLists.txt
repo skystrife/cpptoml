@@ -123,7 +123,7 @@ write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfigVersion.cmake
   VERSION ${cpptoml_VERSION}
   COMPATIBILITY SameMajorVersion)
-configure_file(cmake/cpptomlConfig.cmake
+configure_file(cmake/cpptomlConfig.cmake.in
                ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
                COPYONLY)
 
