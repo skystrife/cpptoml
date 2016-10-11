@@ -89,6 +89,7 @@ if (CPPTOML_HAS_STD_REGEX)
 endif()
 
 if (CPPTOML_BUILD_EXAMPLES)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   add_subdirectory(examples)
 endif()
 
