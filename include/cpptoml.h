@@ -171,21 +171,97 @@ struct valid_value
           || std::is_same<T, datetime>::value;
 };
 
-template <class T, bool Valid = valid_value<typename std::decay<T>::type>::value
-                                || std::is_convertible<T, std::string>::value>
+template <class T, class Enable = void>
 struct value_traits;
 
 template <class T>
-struct value_traits<T, true>
+struct valid_value_or_string_convertible
 {
-    const static bool valid = valid_value<typename std::decay<T>::type>::value
-                              || std::is_convertible<T, std::string>::value;
 
+    const static bool value = valid_value<typename std::decay<T>::type>::value
+                              || std::is_convertible<T, std::string>::value;
+};
+
+template <class T>
+struct value_traits<T, typename std::
+                           enable_if<valid_value_or_string_convertible<T>::
+                                         value>::type>
+{
     using value_type = typename std::
         conditional<valid_value<typename std::decay<T>::type>::value,
                     typename std::decay<T>::type, std::string>::type;
 
     using type = value<value_type>;
+
+    static value_type construct(T&& val)
+    {
+        return value_type{val};
+    }
+};
+
+template <class T>
+struct value_traits<T,
+                    typename std::
+                        enable_if<!valid_value_or_string_convertible<T>::value
+                                  && std::is_floating_point<
+                                         typename std::decay<T>::type>::value>::
+                            type>
+{
+    using value_type = typename std::decay<T>::type;
+
+    using type = value<double>;
+
+    static value_type construct(T&& val)
+    {
+        return value_type{val};
+    }
+};
+
+template <class T>
+struct value_traits<T,
+                    typename std::
+                        enable_if<!valid_value_or_string_convertible<T>::value
+                                  && std::is_signed<typename std::decay<T>::
+                                                        type>::value>::type>
+{
+    using value_type = int64_t;
+
+    using type = value<int64_t>;
+
+    static value_type construct(T&& val)
+    {
+        if (val < std::numeric_limits<int64_t>::min())
+            throw std::underflow_error{"constructed value cannot be "
+                                       "represented by a 64-bit signed "
+                                       "integer"};
+
+        if (val > std::numeric_limits<int64_t>::max())
+            throw std::overflow_error{"constructed value cannot be represented "
+                                      "by a 64-bit signed integer"};
+
+        return static_cast<int64_t>(val);
+    }
+};
+
+template <class T>
+struct value_traits<T,
+                    typename std::
+                        enable_if<!valid_value_or_string_convertible<T>::value
+                                  && std::is_unsigned<typename std::decay<T>::
+                                                          type>::value>::type>
+{
+    using value_type = int64_t;
+
+    using type = value<int64_t>;
+
+    static value_type construct(T&& val)
+    {
+        if (val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+            throw std::overflow_error{"constructed value cannot be represented "
+                                      "by a 64-bit signed integer"};
+
+        return static_cast<int64_t>(val);
+    }
 };
 
 class array;
@@ -363,7 +439,8 @@ std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 {
     using value_type = typename value_traits<T>::type;
     using enabler = typename value_type::make_shared_enabler;
-    return std::make_shared<value_type>(enabler{}, std::forward<T>(val));
+    return std::make_shared<value_type>(
+        enabler{}, value_traits<T>::construct(std::forward<T>(val)));
 }
 
 template <class T>
@@ -807,6 +884,66 @@ inline std::shared_ptr<table_array> make_element<table_array>()
     return make_table_array();
 }
 
+// The below are overloads for fetching specific value types out of a value
+// where special casting behavior (like bounds checking) is desired
+
+template <class T>
+typename std::enable_if<std::is_signed<T>::value, option<T>>::type
+get_impl(const std::shared_ptr<base>& elem)
+{
+    if (auto v = elem->as<int64_t>())
+    {
+        if (v->get() < std::numeric_limits<T>::min())
+            throw std::underflow_error{
+                "T cannot represent the value requested in get"};
+
+        if (v->get() > std::numeric_limits<T>::max())
+            throw std::overflow_error{
+                "T cannot represent the value requested in get"};
+
+        return {static_cast<T>(v->get())};
+    }
+    else
+    {
+        return {};
+    }
+}
+
+template <class T>
+typename std::enable_if<std::is_unsigned<T>::value, option<T>>::type
+get_impl(const std::shared_ptr<base>& elem)
+{
+    if (auto v = elem->as<int64_t>())
+    {
+        if (v->get() < 0)
+            throw std::underflow_error{"T cannot store negative value in get"};
+
+        if (static_cast<uint64_t>(v->get()) > std::numeric_limits<T>::max())
+            throw std::overflow_error{
+                "T cannot represent the value requested in get"};
+
+        return {static_cast<T>(v->get())};
+    }
+    else
+    {
+        return {};
+    }
+}
+
+template <class T>
+typename std::enable_if<!std::is_integral<T>::value, option<T>>::type
+get_impl(const std::shared_ptr<base>& elem)
+{
+    if (auto v = elem->as<T>())
+    {
+        return {v->get()};
+    }
+    else
+    {
+        return {};
+    }
+}
+
 /**
  * Represents a TOML keytable.
  */
@@ -969,10 +1106,7 @@ class table : public base
     {
         try
         {
-            if (auto v = get(key)->as<T>())
-                return {v->get()};
-            else
-                return {};
+            return get_impl<T>(get(key));
         }
         catch (const std::out_of_range&)
         {
@@ -990,10 +1124,7 @@ class table : public base
     {
         try
         {
-            if (auto v = get_qualified(key)->as<T>())
-                return {v->get()};
-            else
-                return {};
+            return get_impl<T>(get_qualified(key));
         }
         catch (const std::out_of_range&)
         {
