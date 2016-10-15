@@ -888,7 +888,9 @@ inline std::shared_ptr<table_array> make_element<table_array>()
 // where special casting behavior (like bounds checking) is desired
 
 template <class T>
-typename std::enable_if<std::is_signed<T>::value, option<T>>::type
+typename std::enable_if<!std::is_floating_point<T>::value
+                            && std::is_signed<T>::value,
+                        option<T>>::type
 get_impl(const std::shared_ptr<base>& elem)
 {
     if (auto v = elem->as<int64_t>())
