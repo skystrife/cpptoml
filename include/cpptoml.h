@@ -910,7 +910,9 @@ get_impl(const std::shared_ptr<base>& elem)
 }
 
 template <class T>
-typename std::enable_if<std::is_unsigned<T>::value, option<T>>::type
+typename std::enable_if<!std::is_same<T, bool>::value
+                            && std::is_unsigned<T>::value,
+                        option<T>>::type
 get_impl(const std::shared_ptr<base>& elem)
 {
     if (auto v = elem->as<int64_t>())
@@ -931,7 +933,9 @@ get_impl(const std::shared_ptr<base>& elem)
 }
 
 template <class T>
-typename std::enable_if<!std::is_integral<T>::value, option<T>>::type
+typename std::enable_if<!std::is_integral<T>::value
+                            || std::is_same<T, bool>::value,
+                        option<T>>::type
 get_impl(const std::shared_ptr<base>& elem)
 {
     if (auto v = elem->as<T>())
