@@ -1832,10 +1832,10 @@ class parser
 
                   while (it != end)
                   {
-                      auto check = it;
                       // handle escaped characters
                       if (delim == '"' && *it == '\\')
                       {
+                          auto check = it;
                           // check if this is an actual escape sequence or a
                           // whitespace escaping backslash
                           ++check;
@@ -2381,25 +2381,25 @@ void base::accept(Visitor&& visitor, Args&&... args) const
 {
     if (is_value())
     {
-        if (auto v = as<std::string>())
+        if (auto v1 = as<std::string>())
         {
-            visitor.visit(*v, std::forward<Args>(args)...);
+            visitor.visit(*v1, std::forward<Args>(args)...);
         }
-        else if (auto v = as<int64_t>())
+        else if (auto v2 = as<int64_t>())
         {
-            visitor.visit(*v, std::forward<Args>(args)...);
+            visitor.visit(*v2, std::forward<Args>(args)...);
         }
-        else if (auto v = as<double>())
+        else if (auto v3 = as<double>())
         {
-            visitor.visit(*v, std::forward<Args>(args)...);
+            visitor.visit(*v3, std::forward<Args>(args)...);
         }
-        else if (auto v = as<cpptoml::datetime>())
+        else if (auto v4 = as<cpptoml::datetime>())
         {
-            visitor.visit(*v, std::forward<Args>(args)...);
+            visitor.visit(*v4, std::forward<Args>(args)...);
         }
-        else if (auto v = as<bool>())
+        else if (auto v5 = as<bool>())
         {
-            visitor.visit(*v, std::forward<Args>(args)...);
+            visitor.visit(*v5, std::forward<Args>(args)...);
         }
     }
     else if (is_table())
