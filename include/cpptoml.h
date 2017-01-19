@@ -2238,11 +2238,15 @@ class parser
         eat(':');
         ltime.second = eat_digits(2);
 
+        int power = 100000;
         if (it != time_end && *it == '.')
         {
             ++it;
             while (it != time_end && is_number(*it))
-                ltime.microsecond = 10 * ltime.microsecond + (*it++ - '0');
+            {
+                ltime.microsecond += power * (*it++ - '0');
+                power /= 10;
+            }
         }
 
         if (it != time_end)
