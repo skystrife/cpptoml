@@ -2318,9 +2318,9 @@ class parser
                         const std::string::iterator& end)
     {
         if (it != end && *it != '#')
-            throw_parse_exception("Unidentified trailing character "
+            throw_parse_exception("Unidentified trailing character '"
                                   + std::string{*it}
-                                  + "---did you forget a '#'?");
+                                  + "'---did you forget a '#'?");
     }
 
     bool is_number(char c)
