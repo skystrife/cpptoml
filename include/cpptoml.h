@@ -197,7 +197,14 @@ inline std::ostream& operator<<(std::ostream& os, const local_time& ltime)
 
     if (ltime.microsecond > 0)
     {
-        os << "." << setw(6) << ltime.microsecond;
+        os << ".";
+        int power = 100000;
+        for (int curr_us = ltime.microsecond; curr_us; power /= 10)
+        {
+            auto num = curr_us / power;
+            os << num;
+            curr_us -= num * power;
+        }
     }
 
     return os;
