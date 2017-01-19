@@ -8,18 +8,12 @@
 #define _CPPTOML_H_
 
 #include <algorithm>
-#if !CPPTOML_HAS_STD_PUT_TIME
-#include <array>
-#endif
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <memory>
-#if CPPTOML_HAS_STD_REGEX
-#include <regex>
-#endif
 #include <map>
 #include <sstream>
 #include <stdexcept>

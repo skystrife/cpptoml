@@ -35,35 +35,6 @@ endif()
 
 set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${CMAKE_CXX11_STANDARD_COMPILE_OPTION}")
 
-check_cxx_source_compiles("
-#include <iomanip>
-int main() {
-    std::tm t;
-    std::put_time(&t, \"%Y\");
-    return 0;
-}" CPPTOML_HAS_STD_PUT_TIME)
-
-check_cxx_source_runs("
-#include <cstring>
-#include <ctime>
-#include <regex>
-int main() {
-    std::string to_match = \"2014-02-05T14:30:05Z\";
-    std::regex pattern{\"(\\\\\\\\d{4})-(\\\\\\\\d{2})-(\\\\\\\\d{2})T(\\\\\\\\d{2}):(\\\\\\\\d{2}):(\\\\\\\\d{2})Z\"};
-    std::match_results<std::string::const_iterator> results;
-    std::regex_match(to_match, results, pattern);
-
-    std::tm date;
-    std::memset(&date, '\\\\0', sizeof(date));
-    date.tm_year = stoi(results[1]) - 1900;
-    date.tm_mon = stoi(results[2]) - 1;
-    date.tm_mday = stoi(results[3]);
-    date.tm_hour = stoi(results[4]);
-    date.tm_min = stoi(results[5]);
-    date.tm_sec = stoi(results[6]);
-    return 0;
-}" CPPTOML_HAS_STD_REGEX)
-
 cmake_pop_check_state()
 
 add_library(cpptoml INTERFACE)
@@ -78,14 +49,6 @@ endif()
 
 if (CXXABI_LIBRARY)
   target_link_libraries(cpptoml INTERFACE ${CXXABI_LIBRARY})
-endif()
-
-if(CPPTOML_HAS_STD_PUT_TIME)
-  target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_PUT_TIME=1)
-endif()
-
-if (CPPTOML_HAS_STD_REGEX)
-  target_compile_definitions(cpptoml INTERFACE -DCPPTOML_HAS_STD_REGEX=1)
 endif()
 
 if (CPPTOML_BUILD_EXAMPLES)
