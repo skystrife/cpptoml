@@ -1954,6 +1954,7 @@ class parser
                           // check if this is an actual escape sequence or a
                           // whitespace escaping backslash
                           ++check;
+                          consume_whitespace(check, end);
                           if (check == end)
                           {
                               consuming = true;
