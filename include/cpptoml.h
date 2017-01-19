@@ -2106,6 +2106,15 @@ class parser
                 throw_parse_exception("Malformed number");
         };
 
+        auto check_no_leading_zero = [&]() {
+            if (check_it != end && *check_it == '0' && check_it + 1 != end
+                && check_it[1] != '.')
+            {
+                throw_parse_exception("Numbers may not have leading zeros");
+            }
+        };
+
+        check_no_leading_zero();
         eat_numbers();
 
         if (check_it != end
@@ -2117,17 +2126,22 @@ class parser
             if (check_it == end)
                 throw_parse_exception("Floats must have trailing digits");
 
-            if (is_exp)
+            auto eat_exp = [&]() {
                 eat_sign();
+                check_no_leading_zero();
+                eat_numbers();
+            };
 
-            eat_numbers();
+            if (is_exp)
+                eat_exp();
+            else
+                eat_numbers();
 
             if (!is_exp && check_it != end
                 && (*check_it == 'e' || *check_it == 'E'))
             {
                 ++check_it;
-                eat_sign();
-                eat_numbers();
+                eat_exp();
             }
 
             return parse_float(it, check_it);
