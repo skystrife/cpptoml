@@ -48,7 +48,23 @@ class toml_test_writer
         stream_ << "{\"type\":\"float\",\"value\":\"" << v.get() << "\"}";
     }
 
-    void visit(const cpptoml::value<cpptoml::datetime>& v)
+    void visit(const cpptoml::value<cpptoml::local_date>& v)
+    {
+        stream_ << "{\"type\":\"local_date\",\"value\":\"" << v.get() << "\"}";
+    }
+
+    void visit(const cpptoml::value<cpptoml::local_time>& v)
+    {
+        stream_ << "{\"type\":\"local_time\",\"value\":\"" << v.get() << "\"}";
+    }
+
+    void visit(const cpptoml::value<cpptoml::local_datetime>& v)
+    {
+        stream_ << "{\"type\":\"local_datetime\",\"value\":\"" << v.get()
+                << "\"}";
+    }
+
+    void visit(const cpptoml::value<cpptoml::offset_datetime>& v)
     {
         stream_ << "{\"type\":\"datetime\",\"value\":\"" << v.get() << "\"}";
     }
