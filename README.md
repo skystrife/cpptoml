@@ -21,7 +21,7 @@ Alternatives:
 
 ## Test Results
 The following two tests are the only failing tests from [the toml-test
-suite][toml-test].
+suite][toml-test]:
 
 ```
 Test: string-escapes (valid)
@@ -35,6 +35,26 @@ Parsing failed: Invalid escape sequence at line 1
 
 
 76 passed, 2 failed
+```
+
+We also currently maintain (but hopefully not indefinitely!) a [fork of the
+toml-test suite][toml-test-fork] that adds tests for features and
+clarifications that have been added to the TOML spec more recently than
+toml-test has been updated. We also pass every test there except for the
+same two:
+
+```
+Test: string-escapes (valid)
+
+Parsing failed: Invalid escape sequence at line 9
+
+-------------------------------------------------------------------------------
+Test: unicode-escape (valid)
+
+Parsing failed: Invalid escape sequence at line 1
+
+
+106 passed, 2 failed
 ```
 
 # Compilation
@@ -248,6 +268,7 @@ then serialize it to a stream.
 [currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md
 [toml]: https://github.com/toml-lang/toml
 [toml-test]: https://github.com/BurntSushi/toml-test
+[toml-test-fork]: https://github.com/skystrife/toml-test
 [ctoml]: https://github.com/evilncrazy/ctoml
 [libtoml]: https://github.com/ajwans/libtoml
 [tinytoml]: https://github.com/mayah/tinytoml
