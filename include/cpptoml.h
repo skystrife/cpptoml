@@ -1946,10 +1946,10 @@ class parser
 
                   while (it != end)
                   {
-                      auto check = it;
                       // handle escaped characters
                       if (delim == '"' && *it == '\\')
                       {
+                          auto check = it;
                           // check if this is an actual escape sequence or a
                           // whitespace escaping backslash
                           ++check;
