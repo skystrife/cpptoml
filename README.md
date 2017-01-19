@@ -92,22 +92,33 @@ auto baz = config->get_as<double>("baz").value_or(0.5);
 // baz is now the double value for key "baz", if it exists, or 0.5 otherwise
 ```
 
-TOML DateTimes are represented as `cpptoml::datetime` objects, which are
-very simple structs containing the following fields:
+cpptoml has extended support for dates and times beyond the TOML v0.4.0
+spec. Specifically, it supports
 
-- year
-- month
-- day
-- hour
-- minute
-- second
-- microsecond
-- hour_offset
-- minute_offset
+- Local Date (`local_date`), which simply represents a date and lacks any time
+  information, e.g. `1980-08-02`;
+- Local Time (`local_time`), which simply represents a time and lacks any
+  date or zone information, e.g. `12:10:03.001`;
+- Local Date-time (`local_datetime`), which represents a date and a time,
+  but lacks zone information, e.g. `1980-08-02T12:10:03.001`;
+- and Offset Date-time (`offset_datetime`), which represents a date, a
+  time, and timezone information, e.g. `1980-08-02T12:10:03.001-07:00`
 
-There are convenience functions `cpptoml::datetime::from_local()` and
-`cpptoml::datetime::from_utc()` to convert `struct tm`s to
-`cpptoml::datetime`s.
+Here are the fields of the date/time objects in cpptoml:
+
+- year (`local_date`, `local_datetime`, `offset_datetime`)
+- month (`local_date`, `local_datetime`, `offset_datetime`)
+- day (`local_date`, `local_datetime`, `offset_datetime`)
+- hour (`local_time`, `local_datetime`, `offset_datetime`)
+- minute (`local_time`, `local_datetime`, `offset_datetime`)
+- second (`local_time`, `local_datetime`, `offset_datetime`)
+- microsecond (`local_time`, `local_datetime`, `offset_datetime`)
+- hour\_offset (`offset_datetime`)
+- minute\_offset (`offset_datetime`)
+
+There are convenience functions `cpptoml::offset_datetime::from_zoned()` and
+`cpptoml::offset_datetime::from_utc()` to convert `struct tm`s to
+`cpptoml::offset_datetime`s.
 
 ## Nested Tables
 If you want to look up things in nested tables, there are two ways of doing
