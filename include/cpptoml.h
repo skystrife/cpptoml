@@ -2080,8 +2080,8 @@ class parser
     std::shared_ptr<base> parse_number(std::string::iterator& it,
                                        const std::string::iterator& end)
     {
-        // determine if we are an integer or a float
         auto check_it = it;
+        auto check_end = find_end_of_number(it, end);
 
         auto eat_sign = [&]() {
             if (check_it != end && (*check_it == '-' || *check_it == '+'))
@@ -2108,7 +2108,7 @@ class parser
         };
 
         auto check_no_leading_zero = [&]() {
-            if (check_it != end && *check_it == '0' && check_it + 1 != end
+            if (check_it != end && *check_it == '0' && check_it + 1 != check_end
                 && check_it[1] != '.')
             {
                 throw_parse_exception("Numbers may not have leading zeros");
@@ -2211,6 +2211,15 @@ class parser
             return make_value<bool>(false);
         else
             throw_parse_exception("Attempted to parse invalid boolean value");
+    }
+
+    std::string::iterator find_end_of_number(std::string::iterator it,
+                                             std::string::iterator end)
+    {
+        return std::find_if(it, end, [this](char c) {
+            return !is_number(c) && c != '_' && c != '.' && c != 'e' && c != 'E'
+                   && c != '-' && c != '+';
+        });
     }
 
     std::string::iterator find_end_of_date(std::string::iterator it,
