@@ -184,7 +184,7 @@ inline std::ostream& operator<<(std::ostream& os, const local_date& dt)
        << dt.day;
 
     return os;
-};
+}
 
 inline std::ostream& operator<<(std::ostream& os, const local_time& ltime)
 {
