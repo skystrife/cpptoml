@@ -2602,7 +2602,7 @@ template <>
 struct value_accept<>
 {
     template <class Visitor, class... Args>
-    static void accept(const base& b, Visitor&& visitor, Args&&... args)
+    static void accept(const base&, Visitor&&, Args&&...)
     {
         // nothing
     }
