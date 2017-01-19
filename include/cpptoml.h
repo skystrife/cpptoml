@@ -33,6 +33,7 @@
 #else
 #define CPPTOML_DEPRECATED(reason) [[deprecated(reason)]]
 #endif
+#endif
 
 namespace cpptoml
 {
