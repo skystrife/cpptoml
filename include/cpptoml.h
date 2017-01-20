@@ -28,7 +28,11 @@
 #elif defined(__GNUG__)
 #define CPPTOML_DEPRECATED(reason) __attribute__((deprecated))
 #elif defined(_MSC_VER)
+#if _MSC_VER < 1910
 #define CPPTOML_DEPRECATED(reason) __declspec(deprecated)
+#else
+#define CPPTOML_DEPRECATED(reason) [[deprecated(reason)]]
+#endif
 #endif
 
 namespace cpptoml
