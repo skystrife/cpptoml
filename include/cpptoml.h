@@ -2238,8 +2238,9 @@ class parser
     uint32_t hex_to_digit(char c)
     {
         if (is_number(c))
-            return c - '0';
-        return 10 + c - ((c >= 'a' && c <= 'f') ? 'a' : 'A');
+            return static_cast<uint32_t>(c - '0');
+        return 10 + static_cast<uint32_t>(
+                        c - ((c >= 'a' && c <= 'f') ? 'a' : 'A'));
     }
 
     std::shared_ptr<base> parse_number(std::string::iterator& it,
