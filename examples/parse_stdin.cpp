@@ -3,23 +3,6 @@
 #include <iostream>
 #include <limits>
 
-std::string escape_string(const std::string& str)
-{
-    std::string res;
-    for (auto it = str.begin(); it != str.end(); ++it)
-    {
-        if (*it == '\\')
-            res += "\\\\";
-        else if (*it == '"')
-            res += "\\\"";
-        else if (*it == '\n')
-            res += "\\n";
-        else
-            res += *it;
-    }
-    return res;
-}
-
 /**
  * A visitor for toml objects that writes to an output stream in the JSON
  * format that the toml-test suite expects.
@@ -34,8 +17,8 @@ class toml_test_writer
 
     void visit(const cpptoml::value<std::string>& v)
     {
-        stream_ << "{\"type\":\"string\",\"value\":\"" << escape_string(v.get())
-                << "\"}";
+        stream_ << "{\"type\":\"string\",\"value\":\""
+                << cpptoml::toml_writer::escape_string(v.get()) << "\"}";
     }
 
     void visit(const cpptoml::value<int64_t>& v)
@@ -107,7 +90,8 @@ class toml_test_writer
         auto it = t.begin();
         while (it != t.end())
         {
-            stream_ << '"' << escape_string(it->first) << "\":";
+            stream_ << '"' << cpptoml::toml_writer::escape_string(it->first)
+                    << "\":";
             it->second->accept(*this);
             if (++it != t.end())
                 stream_ << ", ";

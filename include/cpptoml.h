@@ -2102,8 +2102,8 @@ class parser
         throw_parse_exception("Unterminated string literal");
     }
 
-    char parse_escape_code(std::string::iterator& it,
-                           const std::string::iterator& end)
+    std::string parse_escape_code(std::string::iterator& it,
+                                  const std::string::iterator& end)
     {
         ++it;
         if (it == end)
@@ -2137,12 +2137,109 @@ class parser
         {
             value = '\\';
         }
+        else if (*it == 'u' || *it == 'U')
+        {
+            return parse_unicode(it, end);
+        }
         else
         {
             throw_parse_exception("Invalid escape sequence");
         }
         ++it;
+        return std::string(1, value);
+    }
+
+    std::string parse_unicode(std::string::iterator& it,
+                              const std::string::iterator& end)
+    {
+        bool large = *it++ == 'U';
+        auto codepoint = parse_hex(it, end, large ? 0x10000000 : 0x1000);
+
+        if ((codepoint > 0xd7ff && codepoint < 0xe000) || codepoint > 0x10ffff)
+        {
+            throw_parse_exception(
+                "Unicode escape sequence is not a Unicode scalar value");
+        }
+
+        std::string result;
+        // See Table 3-6 of the Unicode standard
+        if (codepoint <= 0x7f)
+        {
+            // 1-byte codepoints: 00000000 0xxxxxxx
+            // repr: 0xxxxxxx
+            result += static_cast<char>(codepoint & 0x7f);
+        }
+        else if (codepoint <= 0x7ff)
+        {
+            // 2-byte codepoints: 00000yyy yyxxxxxx
+            // repr: 110yyyyy 10xxxxxx
+            //
+            // 0x1f = 00011111
+            // 0xc0 = 11000000
+            //
+            result += static_cast<char>(0xc0 | ((codepoint >> 6) & 0x1f));
+            //
+            // 0x80 = 10000000
+            // 0x3f = 00111111
+            //
+            result += static_cast<char>(0x80 | (codepoint & 0x3f));
+        }
+        else if (codepoint <= 0xffff)
+        {
+            // 3-byte codepoints: zzzzyyyy yyxxxxxx
+            // repr: 1110zzzz 10yyyyyy 10xxxxxx
+            //
+            // 0xe0 = 11100000
+            // 0x0f = 00001111
+            //
+            result += static_cast<char>(0xe0 | ((codepoint >> 12) & 0x0f));
+            result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x1f));
+            result += static_cast<char>(0x80 | (codepoint & 0x3f));
+        }
+        else
+        {
+            // 4-byte codepoints: 000uuuuu zzzzyyyy yyxxxxxx
+            // repr: 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
+            //
+            // 0xf0 = 11110000
+            // 0x07 = 00000111
+            //
+            result += static_cast<char>(0xf0 | ((codepoint >> 18) & 0x07));
+            result += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3f));
+            result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3f));
+            result += static_cast<char>(0x80 | (codepoint & 0x3f));
+        }
+        return result;
+    }
+
+    uint32_t parse_hex(std::string::iterator& it,
+                       const std::string::iterator& end, uint32_t place)
+    {
+        uint32_t value = 0;
+        while (place > 0)
+        {
+            if (it == end)
+                throw_parse_exception("Unexpected end of unicode sequence");
+
+            if (!is_hex(*it))
+                throw_parse_exception("Invalid unicode escape sequence");
+
+            value += place * hex_to_digit(*it++);
+            place /= 16;
+        }
         return value;
+    }
+
+    bool is_hex(char c)
+    {
+        return is_number(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    }
+
+    uint32_t hex_to_digit(char c)
+    {
+        if (is_number(c))
+            return c - '0';
+        return 10 + c - ((c >= 'a' && c <= 'f') ? 'a' : 'A');
     }
 
     std::shared_ptr<base> parse_number(std::string::iterator& it,
@@ -2318,9 +2415,8 @@ class parser
     {
         auto time_end = find_end_of_time(it, end);
 
-        auto eat = make_consumer(it, time_end, [&]() {
-            throw_parse_exception("Malformed time");
-        });
+        auto eat = make_consumer(
+            it, time_end, [&]() { throw_parse_exception("Malformed time"); });
 
         local_time ltime;
 
@@ -2358,9 +2454,8 @@ class parser
     {
         auto date_end = find_end_of_date(it, end);
 
-        auto eat = make_consumer(it, date_end, [&]() {
-            throw_parse_exception("Malformed date");
-        });
+        auto eat = make_consumer(
+            it, date_end, [&]() { throw_parse_exception("Malformed date"); });
 
         local_date ldate;
         ldate.year = eat.eat_digits(4);
@@ -2825,6 +2920,57 @@ class toml_writer
         endline();
     }
 
+    /**
+     * Escape a string for output.
+     */
+    static std::string escape_string(const std::string& str)
+    {
+        std::string res;
+        for (auto it = str.begin(); it != str.end(); ++it)
+        {
+            if (*it == '\b')
+            {
+                res += "\\b";
+            }
+            else if (*it == '\t')
+            {
+                res += "\\t";
+            }
+            else if (*it == '\n')
+            {
+                res += "\\n";
+            }
+            else if (*it == '\f')
+            {
+                res += "\\f";
+            }
+            else if (*it == '\r')
+            {
+                res += "\\r";
+            }
+            else if (*it == '"')
+            {
+                res += "\\\"";
+            }
+            else if (*it == '\\')
+            {
+                res += "\\\\";
+            }
+            else if (*it >= 0x0000 && *it <= 0x001f)
+            {
+                res += "\\u";
+                std::stringstream ss;
+                ss << std::hex << static_cast<uint32_t>(*it);
+                res += ss.str();
+            }
+            else
+            {
+                res += *it;
+            }
+        }
+        return res;
+    }
+
   protected:
     /**
      * Write out a string.
@@ -2954,26 +3100,6 @@ class toml_writer
     {
         for (std::size_t i = 1; i < path_.size(); ++i)
             write(indent_);
-    }
-
-    /**
-     * Escape a string for output.
-     */
-    static std::string escape_string(const std::string& str)
-    {
-        std::string res;
-        for (auto it = str.begin(); it != str.end(); ++it)
-        {
-            if (*it == '\\')
-                res += "\\\\";
-            else if (*it == '"')
-                res += "\\\"";
-            else if (*it == '\n')
-                res += "\\n";
-            else
-                res += *it;
-        }
-        return res;
     }
 
     /**

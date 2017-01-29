@@ -20,41 +20,27 @@ Alternatives:
 [![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
 
 ## Test Results
-The following two tests are the only failing tests from [the toml-test
+The following test is the only failing test from [the toml-test
 suite][toml-test]:
 
 ```
-Test: string-escapes (valid)
+Test: datetime-malformed-no-z (invalid)
 
-Parsing failed: Invalid escape sequence at line 9
+Expected an error, but no error was reported.
 
--------------------------------------------------------------------------------
-Test: unicode-escape (valid)
-
-Parsing failed: Invalid escape sequence at line 1
-
-
-76 passed, 2 failed
+77 passed, 1 failed
 ```
+
+This is due to cpptoml's support for extended Date-times (from the TOML
+master branch) and can safely be ignored.
 
 We also currently maintain (but hopefully not indefinitely!) a [fork of the
 toml-test suite][toml-test-fork] that adds tests for features and
 clarifications that have been added to the TOML spec more recently than
-toml-test has been updated. We also pass every test there except for the
-same two:
+toml-test has been updated. We pass every test there.
 
 ```
-Test: string-escapes (valid)
-
-Parsing failed: Invalid escape sequence at line 9
-
--------------------------------------------------------------------------------
-Test: unicode-escape (valid)
-
-Parsing failed: Invalid escape sequence at line 1
-
-
-106 passed, 2 failed
+109 passed, 0 failed
 ```
 
 # Compilation
