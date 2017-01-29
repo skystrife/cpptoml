@@ -1494,6 +1494,70 @@ class parse_exception : public std::runtime_error
     }
 };
 
+inline bool is_number(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+/**
+ * Helper object for consuming expected characters.
+ */
+template <class OnError>
+class consumer
+{
+  public:
+    consumer(std::string::iterator& it, const std::string::iterator& end,
+             OnError&& on_error)
+        : it_(it), end_(end), on_error_(std::forward<OnError>(on_error))
+    {
+        // nothing
+    }
+
+    void operator()(char c)
+    {
+        if (it_ == end_ || *it_ != c)
+            on_error_();
+        ++it_;
+    }
+
+    template <std::size_t N>
+    void operator()(const char (&str)[N])
+    {
+        std::for_each(std::begin(str), std::end(str) - 1,
+                      [&](char c) { (*this)(c); });
+    }
+
+    int eat_digits(int len)
+    {
+        int val = 0;
+        for (int i = 0; i < len; ++i)
+        {
+            if (!is_number(*it_) || it_ == end_)
+                on_error_();
+            val = 10 * val + (*it_++ - '0');
+        }
+        return val;
+    }
+
+    void error()
+    {
+        on_error_();
+    }
+
+  private:
+    std::string::iterator& it_;
+    const std::string::iterator& end_;
+    OnError on_error_;
+};
+
+template <class OnError>
+consumer<OnError> make_consumer(std::string::iterator& it,
+                                const std::string::iterator& end,
+                                OnError&& on_error)
+{
+    return consumer<OnError>(it, end, std::forward<OnError>(on_error));
+}
+
 /**
  * The parser class.
  */
@@ -2204,31 +2268,23 @@ class parser
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
                                             const std::string::iterator& end)
     {
-        auto eat = [&](char c) {
-            if (it == end || *it != c)
-                throw_parse_exception(
-                    "Attempted to parse invalid boolean value");
-            ++it;
-        };
+        auto eat = make_consumer(it, end, [this]() {
+            throw_parse_exception("Attempted to parse invalid boolean value");
+        });
 
         if (*it == 't')
         {
-            eat('t');
-            eat('r');
-            eat('u');
-            eat('e');
+            eat("true");
             return make_value<bool>(true);
         }
         else if (*it == 'f')
         {
-            eat('f');
-            eat('a');
-            eat('l');
-            eat('s');
-            eat('e');
+            eat("false");
             return make_value<bool>(false);
         }
-        throw_parse_exception("Attempted to parse invalid boolean value");
+
+        eat.error();
+        return nullptr;
     }
 
     std::string::iterator find_end_of_number(std::string::iterator it,
@@ -2262,30 +2318,17 @@ class parser
     {
         auto time_end = find_end_of_time(it, end);
 
-        auto eat = [&](char c) {
-            if (it == time_end || *it != c)
-                throw_parse_exception("Malformed time");
-            ++it;
-        };
-
-        auto eat_digits = [&](int len) {
-            int val = 0;
-            for (int i = 0; i < len; ++i)
-            {
-                if (!is_number(*it) || it == time_end)
-                    throw_parse_exception("Malformed time");
-                val = 10 * val + (*it++ - '0');
-            }
-            return val;
-        };
+        auto eat = make_consumer(it, time_end, [&]() {
+            throw_parse_exception("Malformed time");
+        });
 
         local_time ltime;
 
-        ltime.hour = eat_digits(2);
+        ltime.hour = eat.eat_digits(2);
         eat(':');
-        ltime.minute = eat_digits(2);
+        ltime.minute = eat.eat_digits(2);
         eat(':');
-        ltime.second = eat_digits(2);
+        ltime.second = eat.eat_digits(2);
 
         int power = 100000;
         if (it != time_end && *it == '.')
@@ -2315,29 +2358,16 @@ class parser
     {
         auto date_end = find_end_of_date(it, end);
 
-        auto eat = [&](char c) {
-            if (it == date_end || *it != c)
-                throw_parse_exception("Malformed date");
-            ++it;
-        };
-
-        auto eat_digits = [&](int len) {
-            int val = 0;
-            for (int i = 0; i < len; ++i)
-            {
-                if (!is_number(*it) || it == date_end)
-                    throw_parse_exception("Malformed date");
-                val = 10 * val + (*it++ - '0');
-            }
-            return val;
-        };
+        auto eat = make_consumer(it, date_end, [&]() {
+            throw_parse_exception("Malformed date");
+        });
 
         local_date ldate;
-        ldate.year = eat_digits(4);
+        ldate.year = eat.eat_digits(4);
         eat('-');
-        ldate.month = eat_digits(2);
+        ldate.month = eat.eat_digits(2);
         eat('-');
-        ldate.day = eat_digits(2);
+        ldate.day = eat.eat_digits(2);
 
         if (it == date_end)
             return make_value(ldate);
@@ -2361,10 +2391,10 @@ class parser
             auto plus = *it == '+';
             ++it;
 
-            hoff = eat_digits(2);
+            hoff = eat.eat_digits(2);
             dt.hour_offset = (plus) ? hoff : -hoff;
             eat(':');
-            moff = eat_digits(2);
+            moff = eat.eat_digits(2);
             dt.minute_offset = (plus) ? moff : -moff;
         }
         else if (*it == 'Z')
@@ -2543,11 +2573,6 @@ class parser
             throw_parse_exception("Unidentified trailing character '"
                                   + std::string{*it}
                                   + "'---did you forget a '#'?");
-    }
-
-    bool is_number(char c)
-    {
-        return c >= '0' && c <= '9';
     }
 
     bool is_time(const std::string::iterator& it,
