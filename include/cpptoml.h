@@ -2204,17 +2204,31 @@ class parser
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
                                             const std::string::iterator& end)
     {
-        auto boolend = std::find_if(it, end, [](char c) {
-            return c == ' ' || c == '\t' || c == '#' || c == ',' || c == ']';
-        });
-        std::string v{it, boolend};
-        it = boolend;
-        if (v == "true")
+        auto eat = [&](char c) {
+            if (it == end || *it != c)
+                throw_parse_exception(
+                    "Attempted to parse invalid boolean value");
+            ++it;
+        };
+
+        if (*it == 't')
+        {
+            eat('t');
+            eat('r');
+            eat('u');
+            eat('e');
             return make_value<bool>(true);
-        else if (v == "false")
+        }
+        else if (*it == 'f')
+        {
+            eat('f');
+            eat('a');
+            eat('l');
+            eat('s');
+            eat('e');
             return make_value<bool>(false);
-        else
-            throw_parse_exception("Attempted to parse invalid boolean value");
+        }
+        throw_parse_exception("Attempted to parse invalid boolean value");
     }
 
     std::string::iterator find_end_of_number(std::string::iterator it,
