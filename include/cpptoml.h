@@ -303,7 +303,7 @@ struct value_traits<T, typename std::
 
     static value_type construct(T&& val)
     {
-        return value_type{val};
+        return value_type(val);
     }
 };
 
@@ -321,7 +321,7 @@ struct value_traits<T,
 
     static value_type construct(T&& val)
     {
-        return value_type{val};
+        return value_type(val);
     }
 };
 
