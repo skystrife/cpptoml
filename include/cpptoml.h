@@ -1558,6 +1558,41 @@ consumer<OnError> make_consumer(std::string::iterator& it,
     return consumer<OnError>(it, end, std::forward<OnError>(on_error));
 }
 
+// replacement for std::getline to handle incorrectly line-ended files
+// https://stackoverflow.com/questions/6089231/getting-std-ifstream-to-handle-lf-cr-and-crlf
+namespace detail
+{
+inline std::istream& getline(std::istream& input, std::string& line)
+{
+    line.clear();
+
+    std::istream::sentry sentry{input, true};
+    auto sb = input.rdbuf();
+
+    while (true)
+    {
+        auto c = sb->sbumpc();
+        if (c == '\r')
+        {
+            if (sb->sgetc() == '\n')
+                c = sb->sbumpc();
+        }
+
+        if (c == '\n')
+            return input;
+
+        if (c == std::istream::traits_type::eof())
+        {
+            if (line.empty())
+                input.setstate(std::ios::eofbit);
+            return input;
+        }
+
+        line.push_back(static_cast<char>(c));
+    }
+}
+}
+
 /**
  * The parser class.
  */
@@ -1569,6 +1604,7 @@ class parser
      */
     parser(std::istream& stream) : input_(stream)
     {
+        // nothing
     }
 
     parser& operator=(const parser& parser) = delete;
@@ -1583,7 +1619,7 @@ class parser
 
         table* curr_table = root.get();
 
-        while (std::getline(input_, line_))
+        while (detail::getline(input_, line_))
         {
             line_number_++;
             auto it = line_.begin();
@@ -2057,7 +2093,7 @@ class parser
             return ret;
 
         // start eating lines
-        while (std::getline(input_, line_))
+        while (detail::getline(input_, line_))
         {
             ++line_number_;
 
@@ -2639,7 +2675,7 @@ class parser
         consume_whitespace(start, end);
         while (start == end || *start == '#')
         {
-            if (!std::getline(input_, line_))
+            if (!detail::getline(input_, line_))
                 throw_parse_exception("Unclosed array");
             line_number_++;
             start = line_.begin();
