@@ -156,9 +156,8 @@ struct offset_datetime : local_datetime, zone_offset
     }
 };
 
-typedef offset_datetime
-    CPPTOML_DEPRECATED("datetime has been renamed to offset_datetime")
-    datetime;
+CPPTOML_DEPRECATED("datetime has been renamed to offset_datetime")
+typedef offset_datetime datetime;
 
 class fill_guard
 {
