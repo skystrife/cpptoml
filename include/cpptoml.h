@@ -401,6 +401,8 @@ inline std::shared_ptr<table_array> make_table_array();
 class base : public std::enable_shared_from_this<base>
 {
   public:
+    virtual ~base() = default;
+
     /**
      * Determines if the given TOML element is a value.
      */
