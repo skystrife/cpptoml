@@ -2425,7 +2425,7 @@ class parser
     std::string::iterator find_end_of_number(std::string::iterator it,
                                              std::string::iterator end)
     {
-        return std::find_if(it, end, [this](char c) {
+        return std::find_if(it, end, [](char c) {
             return !is_number(c) && c != '_' && c != '.' && c != 'e' && c != 'E'
                    && c != '-' && c != '+';
         });
@@ -2434,7 +2434,7 @@ class parser
     std::string::iterator find_end_of_date(std::string::iterator it,
                                            std::string::iterator end)
     {
-        return std::find_if(it, end, [this](char c) {
+        return std::find_if(it, end, [](char c) {
             return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
                    && c != '+' && c != '.';
         });
@@ -2443,7 +2443,7 @@ class parser
     std::string::iterator find_end_of_time(std::string::iterator it,
                                            std::string::iterator end)
     {
-        return std::find_if(it, end, [this](char c) {
+        return std::find_if(it, end, [](char c) {
             return !is_number(c) && c != ':' && c != '.';
         });
     }
