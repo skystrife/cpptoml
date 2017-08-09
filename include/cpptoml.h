@@ -403,6 +403,8 @@ class base : public std::enable_shared_from_this<base>
   public:
     virtual ~base() = default;
 
+    virtual std::shared_ptr<base> clone() const = 0;
+
     /**
      * Determines if the given TOML element is a value.
      */
@@ -501,6 +503,8 @@ class value : public base
 
   public:
     static_assert(valid_value<T>::value, "invalid value type");
+
+    std::shared_ptr<base> clone() const override;
 
     value(const make_shared_enabler&, const T& val) : value(val)
     {
@@ -613,10 +617,14 @@ class array : public base
   public:
     friend std::shared_ptr<array> make_array();
 
+    std::shared_ptr<base> clone() const override;
+
     virtual bool is_array() const override
     {
         return true;
     }
+
+    using size_type = std::size_t;
 
     /**
      * arrays can be iterated over
@@ -821,6 +829,14 @@ class array : public base
         values_.clear();
     }
 
+    /**
+     * Reserve space for n values.
+     */
+    void reserve(size_type n)
+    {
+        values_.reserve(n);
+    }
+
   private:
     array() = default;
 
@@ -885,6 +901,10 @@ class table_array : public base
     friend std::shared_ptr<table_array> make_table_array();
 
   public:
+    std::shared_ptr<base> clone() const override;
+
+    using size_type = std::size_t;
+
     /**
      * arrays can be iterated over
      */
@@ -960,6 +980,14 @@ class table_array : public base
     void clear()
     {
         array_.clear();
+    }
+
+    /**
+     * Reserve space for n tables.
+     */
+    void reserve(size_type n)
+    {
+        array_.reserve(n);
     }
 
   private:
@@ -1067,6 +1095,8 @@ class table : public base
   public:
     friend class table_array;
     friend std::shared_ptr<table> make_table();
+
+    std::shared_ptr<base> clone() const override;
 
     /**
      * tables can be iterated over.
@@ -1477,6 +1507,38 @@ template <>
 inline std::shared_ptr<table> make_element<table>()
 {
     return make_table();
+}
+
+template <class T>
+std::shared_ptr<base> value<T>::clone() const
+{
+    return make_value(data_);
+}
+
+inline std::shared_ptr<base> array::clone() const
+{
+    auto result = make_array();
+    result->reserve(values_.size());
+    for (const auto& ptr : values_)
+        result->values_.push_back(ptr->clone());
+    return result;
+}
+
+inline std::shared_ptr<base> table_array::clone() const
+{
+    auto result = make_table_array();
+    result->reserve(array_.size());
+    for (const auto& ptr : array_)
+        result->array_.push_back(ptr->clone()->as_table());
+    return result;
+}
+
+inline std::shared_ptr<base> table::clone() const
+{
+    auto result = make_table();
+    for (const auto& pr : map_)
+        result->insert(pr.first, pr.second->clone());
+    return result;
 }
 
 /**
