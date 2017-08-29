@@ -1899,7 +1899,7 @@ class parser
         auto key = parse_key(it, end, [](char c) { return c == '='; });
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
-        if (*it != '=')
+        if (it == end || *it != '=')
             throw_parse_exception("Value must follow after a '='");
         ++it;
         consume_whitespace(it, end);
