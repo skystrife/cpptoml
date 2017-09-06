@@ -1776,6 +1776,10 @@ class parser
             consume_whitespace(it, end);
         }
 
+        if (it == end)
+            throw_parse_exception(
+                "Unterminated table declaration; did you forget a ']'?");
+
         // table already existed
         if (!inserted)
         {
