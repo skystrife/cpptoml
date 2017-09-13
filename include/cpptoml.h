@@ -1471,7 +1471,7 @@ template <>
 inline typename array_of_trait<array>::return_type
 table::get_qualified_array_of<array>(const std::string& key) const
 {
-    if (auto v = get_array(key))
+    if (auto v = get_array_qualified(key))
     {
         std::vector<std::shared_ptr<array>> result;
         result.reserve(v->get().size());
