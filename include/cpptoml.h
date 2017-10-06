@@ -20,6 +20,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <langinfo.h>
 
 #if __cplusplus > 201103L
 #define CPPTOML_DEPRECATED(reason) [[deprecated(reason)]]
@@ -2449,6 +2450,8 @@ class parser
     {
         std::string v{it, end};
         v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
+        char* radix = nl_langinfo(RADIXCHAR);
+        std::replace(v.begin(), v.end(), '.', radix[0]);
         it = end;
         try
         {
