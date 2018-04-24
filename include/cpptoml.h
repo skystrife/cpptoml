@@ -2017,6 +2017,10 @@ class parser
     parse_type determine_value_type(const std::string::iterator& it,
                                     const std::string::iterator& end)
     {
+        if(it == end)
+        {
+            throw_parse_exception("Failed to parse value type");
+        }
         if (*it == '"' || *it == '\'')
         {
             return parse_type::STRING;
