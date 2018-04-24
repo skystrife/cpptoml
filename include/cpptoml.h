@@ -3060,7 +3060,7 @@ class toml_writer
             {
                 res += "\\\\";
             }
-            else if (*it >= 0x0000 && *it <= 0x001f)
+            else if ((const uint32_t)*it <= 0x001f)
             {
                 res += "\\u";
                 std::stringstream ss;
