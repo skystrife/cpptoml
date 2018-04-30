@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <clocale>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -2450,6 +2451,8 @@ class parser
         std::string v{it, end};
         v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
+        char decimal_point = std::localeconv()->decimal_point[0];
+        std::replace(v.begin(), v.end(), '.', decimal_point);
         try
         {
             return make_value<double>(std::stod(v));
