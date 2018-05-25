@@ -406,7 +406,81 @@ enum class base_type
     OFFSET_DATETIME,
     INT,
     FLOAT,
-    BOOL
+    BOOL,
+    TABLE,
+    ARRAY,
+    TABLE_ARRAY
+};
+    // : is_one_of<T, std::string, int64_t, double, bool, local_date, local_time,
+    //             local_datetime, offset_datetime>
+
+template <class T>
+struct base_type_traits;
+
+template <>
+struct base_type_traits<std::string>
+{
+    static const base_type type = base_type::STRING;
+};
+
+template <>
+struct base_type_traits<local_time>
+{
+    static const base_type type = base_type::LOCAL_TIME;
+};
+
+template <>
+struct base_type_traits<local_date>
+{
+    static const base_type type = base_type::LOCAL_DATE;
+};
+
+template <>
+struct base_type_traits<local_datetime>
+{
+    static const base_type type = base_type::LOCAL_DATETIME;
+};
+
+template <>
+struct base_type_traits<offset_datetime>
+{
+    static const base_type type = base_type::OFFSET_DATETIME;
+};
+
+template <>
+struct base_type_traits<int64_t>
+{
+    static const base_type type = base_type::INT;
+};
+
+template <>
+struct base_type_traits<double>
+{
+    static const base_type type = base_type::FLOAT;
+};
+
+template <>
+struct base_type_traits<bool>
+{
+    static const base_type type = base_type::BOOL;
+};
+
+template <>
+struct base_type_traits<table>
+{
+    static const base_type type = base_type::TABLE;
+};
+
+template <>
+struct base_type_traits<array>
+{
+    static const base_type type = base_type::ARRAY;
+};
+
+template <>
+struct base_type_traits<table_array>
+{
+    static const base_type type = base_type::TABLE_ARRAY;
 };
 
 /**
@@ -499,7 +573,7 @@ class base : public std::enable_shared_from_this<base>
     }
 
   protected:
-    base(const base_type t = base_type::NONE) : type_(t)
+    base(const base_type t) : type_(t)
     {
         // nothing
     }
@@ -561,7 +635,7 @@ class value : public base
     /**
      * Constructs a value from the given data.
      */
-    value(const T& val) : data_(val)
+    value(const T& val) : base(base_type_traits<T>::type), data_(val)
     {
     }
 
@@ -860,7 +934,10 @@ class array : public base
     }
 
   private:
-    array() = default;
+    array() : base(base_type::ARRAY)
+    {
+        // empty
+    }
 
     template <class InputIterator>
     array(InputIterator begin, InputIterator end) : values_{begin, end}
@@ -1013,7 +1090,7 @@ class table_array : public base
     }
 
   private:
-    table_array()
+    table_array() : base(base_type::TABLE_ARRAY)
     {
         // nothing
     }
@@ -1390,7 +1467,7 @@ class table : public base
     }
 
   private:
-    table()
+    table() : base(base_type::TABLE)
     {
         // nothing
     }
