@@ -1404,11 +1404,11 @@ class table : public base
         auto last_key = parts.back();
         parts.pop_back();
 
-        auto table = this;
+        auto table_ = this;
         for (const auto& part : parts)
         {
-            table = table->get_table(part).get();
-            if (!table)
+            table_ = table_->get_table(part).get();
+            if (!table_)
             {
                 if (!p)
                     return false;
@@ -1418,9 +1418,9 @@ class table : public base
         }
 
         if (!p)
-            return table->map_.count(last_key) != 0;
+            return table_->map_.count(last_key) != 0;
 
-        *p = table->map_.at(last_key);
+        *p = table_->map_.at(last_key);
         return true;
     }
 
@@ -2109,53 +2109,53 @@ class parser
         std::shared_ptr<value<std::string>> ret;
 
         auto handle_line
-            = [&](std::string::iterator& it, std::string::iterator& end) {
+            = [&](std::string::iterator& it_, std::string::iterator& end_) {
                   if (consuming)
                   {
-                      it = std::find_if_not(it, end, is_ws);
+                      it_ = std::find_if_not(it_, end_, is_ws);
 
                       // whole line is whitespace
-                      if (it == end)
+                      if (it_ == end_)
                           return;
                   }
 
                   consuming = false;
 
-                  while (it != end)
+                  while (it_ != end_)
                   {
                       // handle escaped characters
-                      if (delim == '"' && *it == '\\')
+                      if (delim == '"' && *it_ == '\\')
                       {
-                          auto check = it;
+                          auto check = it_;
                           // check if this is an actual escape sequence or a
                           // whitespace escaping backslash
                           ++check;
-                          consume_whitespace(check, end);
-                          if (check == end)
+                          consume_whitespace(check, end_);
+                          if (check == end_)
                           {
                               consuming = true;
                               break;
                           }
 
-                          ss << parse_escape_code(it, end);
+                          ss << parse_escape_code(it_, end_);
                           continue;
                       }
 
                       // if we can end the string
-                      if (std::distance(it, end) >= 3)
+                      if (std::distance(it_, end_) >= 3)
                       {
-                          auto check = it;
+                          auto check = it_;
                           // check for """
                           if (*check++ == delim && *check++ == delim
                               && *check++ == delim)
                           {
-                              it = check;
+                              it_ = check;
                               ret = make_value<std::string>(ss.str());
                               break;
                           }
                       }
 
-                      ss << *it++;
+                      ss << *it_++;
                   }
               };
 
