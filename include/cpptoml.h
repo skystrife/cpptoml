@@ -51,6 +51,10 @@ using string_to_base_map
     = std::unordered_map<std::string, std::shared_ptr<base>>;
 #endif
 
+// if defined, `base` will retain type information in form of an enum class
+// such that static_cast can be used instead of dynamic_cast
+// #define CPPTOML_NO_RTTI
+
 template <class T>
 class option
 {
@@ -655,7 +659,14 @@ std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type_traits<T>::type)
+        return std::static_pointer_cast<value<T>>(shared_from_this());
+    else
+        return nullptr;
+#else
     return std::dynamic_pointer_cast<value<T>>(shared_from_this());
+#endif
 }
 
 // special case value<double> to allow getting an integer parameter as a
@@ -663,11 +674,22 @@ inline std::shared_ptr<value<T>> base::as()
 template <>
 inline std::shared_ptr<value<double>> base::as()
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type::FLOAT)
+        return std::static_pointer_cast<value<double>>(shared_from_this());
+
+    if (type() == base_type::INT)
+    {
+        auto v = std::static_pointer_cast<value<int64_t>>(shared_from_this());
+        return make_value<double>(static_cast<double>(v->get()));;
+    }
+#else
     if (auto v = std::dynamic_pointer_cast<value<double>>(shared_from_this()))
         return v;
 
     if (auto v = std::dynamic_pointer_cast<value<int64_t>>(shared_from_this()))
         return make_value<double>(static_cast<double>(v->get()));
+#endif
 
     return nullptr;
 }
@@ -675,7 +697,14 @@ inline std::shared_ptr<value<double>> base::as()
 template <class T>
 inline std::shared_ptr<const value<T>> base::as() const
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type_traits<T>::type)
+        return std::static_pointer_cast<const value<T>>(shared_from_this());
+    else
+        return nullptr;
+#else
     return std::dynamic_pointer_cast<const value<T>>(shared_from_this());
+#endif
 }
 
 // special case value<double> to allow getting an integer parameter as a
@@ -683,6 +712,18 @@ inline std::shared_ptr<const value<T>> base::as() const
 template <>
 inline std::shared_ptr<const value<double>> base::as() const
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type::FLOAT)
+        return std::static_pointer_cast<const value<double>>(shared_from_this());
+
+    if (type() == base_type::INT)
+    {
+        auto v = as<int64_t>();
+        // the below has to be a non-const value<double> due to a bug in
+        // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
+        return make_value<double>(static_cast<double>(v->get()));
+    }
+#else
     if (auto v
         = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
         return v;
@@ -693,6 +734,7 @@ inline std::shared_ptr<const value<double>> base::as() const
         // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
         return make_value<double>(static_cast<double>(v->get()));
     }
+#endif
 
     return nullptr;
 }
