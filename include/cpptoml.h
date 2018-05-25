@@ -396,6 +396,19 @@ inline std::shared_ptr<T> make_element();
 inline std::shared_ptr<table> make_table();
 inline std::shared_ptr<table_array> make_table_array();
 
+enum class base_type
+{
+    NONE,
+    STRING,
+    LOCAL_TIME,
+    LOCAL_DATE,
+    LOCAL_DATETIME,
+    OFFSET_DATETIME,
+    INT,
+    FLOAT,
+    BOOL
+};
+
 /**
  * A generic base TOML value used for type erasure.
  */
@@ -480,11 +493,19 @@ class base : public std::enable_shared_from_this<base>
     template <class Visitor, class... Args>
     void accept(Visitor&& visitor, Args&&... args) const;
 
+    base_type type() const
+    {
+      return type_;
+    }
+
   protected:
-    base()
+    base(const base_type t = base_type::NONE) : type_(t)
     {
         // nothing
     }
+
+  private:
+    const base_type type_ = base_type::NONE;
 };
 
 /**
