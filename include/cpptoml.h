@@ -338,12 +338,12 @@ struct value_traits<T,
 
     static value_type construct(T&& val)
     {
-        if (val < std::numeric_limits<int64_t>::min())
+        if (val < (std::numeric_limits<int64_t>::min)())
             throw std::underflow_error{"constructed value cannot be "
                                        "represented by a 64-bit signed "
                                        "integer"};
 
-        if (val > std::numeric_limits<int64_t>::max())
+        if (val > (std::numeric_limits<int64_t>::max)())
             throw std::overflow_error{"constructed value cannot be represented "
                                       "by a 64-bit signed integer"};
 
@@ -364,7 +364,7 @@ struct value_traits<T,
 
     static value_type construct(T&& val)
     {
-        if (val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+        if (val > static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
             throw std::overflow_error{"constructed value cannot be represented "
                                       "by a 64-bit signed integer"};
 
@@ -1033,11 +1033,11 @@ get_impl(const std::shared_ptr<base>& elem)
 {
     if (auto v = elem->as<int64_t>())
     {
-        if (v->get() < std::numeric_limits<T>::min())
+        if (v->get() < (std::numeric_limits<T>::min)())
             throw std::underflow_error{
                 "T cannot represent the value requested in get"};
 
-        if (v->get() > std::numeric_limits<T>::max())
+        if (v->get() > (std::numeric_limits<T>::max)())
             throw std::overflow_error{
                 "T cannot represent the value requested in get"};
 
@@ -1060,7 +1060,7 @@ get_impl(const std::shared_ptr<base>& elem)
         if (v->get() < 0)
             throw std::underflow_error{"T cannot store negative value in get"};
 
-        if (static_cast<uint64_t>(v->get()) > std::numeric_limits<T>::max())
+        if (static_cast<uint64_t>(v->get()) > (std::numeric_limits<T>::max)())
             throw std::overflow_error{
                 "T cannot represent the value requested in get"};
 
