@@ -400,6 +400,8 @@ inline std::shared_ptr<T> make_element();
 inline std::shared_ptr<table> make_table();
 inline std::shared_ptr<table_array> make_table_array();
 
+#if defined(CPPTOML_NO_RTTI)
+/// Base type used to store underlying data type explicitly if RTTI is disabled
 enum class base_type
 {
     NONE,
@@ -415,9 +417,8 @@ enum class base_type
     ARRAY,
     TABLE_ARRAY
 };
-    // : is_one_of<T, std::string, int64_t, double, bool, local_date, local_time,
-    //             local_datetime, offset_datetime>
 
+/// Type traits class to convert C++ types to enum member
 template <class T>
 struct base_type_traits;
 
@@ -486,6 +487,7 @@ struct base_type_traits<table_array>
 {
     static const base_type type = base_type::TABLE_ARRAY;
 };
+#endif
 
 /**
  * A generic base TOML value used for type erasure.
@@ -571,6 +573,7 @@ class base : public std::enable_shared_from_this<base>
     template <class Visitor, class... Args>
     void accept(Visitor&& visitor, Args&&... args) const;
 
+#if defined(CPPTOML_NO_RTTI)
     base_type type() const
     {
       return type_;
@@ -584,6 +587,14 @@ class base : public std::enable_shared_from_this<base>
 
   private:
     const base_type type_ = base_type::NONE;
+
+#else
+  protected:
+    base()
+    {
+        // nothing
+    }
+#endif
 };
 
 /**
@@ -639,9 +650,15 @@ class value : public base
     /**
      * Constructs a value from the given data.
      */
+#if defined(CPPTOML_NO_RTTI)
     value(const T& val) : base(base_type_traits<T>::type), data_(val)
     {
     }
+#else
+    value(const T& val) : data_(val)
+    {
+    }
+#endif
 
     value(const value& val) = delete;
     value& operator=(const value& val) = delete;
@@ -976,10 +993,14 @@ class array : public base
     }
 
   private:
+#if defined(CPPTOML_NO_RTTI)
     array() : base(base_type::ARRAY)
     {
         // empty
     }
+#else
+    array() = default;
+#endif
 
     template <class InputIterator>
     array(InputIterator begin, InputIterator end) : values_{begin, end}
@@ -1132,10 +1153,17 @@ class table_array : public base
     }
 
   private:
+#if defined(CPPTOML_NO_RTTI)
     table_array() : base(base_type::TABLE_ARRAY)
     {
         // nothing
     }
+#else
+    table_array()
+    {
+        // nothing
+    }
+#endif
 
     table_array(const table_array& obj) = delete;
     table_array& operator=(const table_array& rhs) = delete;
@@ -1509,10 +1537,17 @@ class table : public base
     }
 
   private:
+#if defined(CPPTOML_NO_RTTI)
     table() : base(base_type::TABLE)
     {
         // nothing
     }
+#else
+    table()
+    {
+        // nothing
+    }
+#endif
 
     table(const table& obj) = delete;
     table& operator=(const table& rhs) = delete;
