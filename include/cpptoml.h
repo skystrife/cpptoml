@@ -53,7 +53,10 @@ using string_to_base_map
 #endif
 
 #if defined(CPPTOML_NO_EXCEPTIONS)
-// if defined, exception handling will be crudely disabled
+// If defined, exception handling will be disabled. In some cases, originally
+// thrown exceptions will now result in an abort using std::exit. In other
+// cases, caught exceptions are now passed on. Where exception handling is
+// used for control flow, it is replaced by other (maybe more costly) means.
 #define THROW_(exception, reason) die(reason, __FILE__, __LINE__)
 #define THROW2_(exception, reason, input_line)                                 \
     die(reason, input_line, __FILE__, __LINE__)
@@ -3341,7 +3344,7 @@ inline std::ostream& operator<<(std::ostream& stream, const array& a)
 }
 
 #if defined(CPPTOML_NO_EXCEPTIONS)
-// if defined, re-enable exception handling after this file
+// undefine local macros such that they do not leak outside this file
 #undef THROW_
 #undef THROW2_
 #endif
