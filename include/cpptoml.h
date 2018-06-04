@@ -2679,7 +2679,7 @@ class parser
             if (auto v = value->as<Value>())
                 arr->get().push_back(value);
             else
-                throw_parse_exception("Arrays must be heterogeneous");
+                throw_parse_exception("Arrays must be homogeneous");
             skip_whitespace_and_comments(it, end);
             if (*it != ',')
                 break;
