@@ -1462,14 +1462,10 @@ class table : public base
             table = table->get_table(part).get();
             if (!table)
             {
-#ifndef CPPTOML_NO_EXCEPTIONS
                 if (!p)
                     return false;
 
-                throw std::out_of_range{key + " is not a valid key"};
-#else
-                return false;
-#endif
+                THROW_(std::out_of_range, key + " is not a valid key");
             }
         }
 
