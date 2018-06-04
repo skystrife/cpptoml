@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -49,6 +50,34 @@ using string_to_base_map = std::map<std::string, std::shared_ptr<base>>;
 // toml specification does not require entries to be sorted
 using string_to_base_map
     = std::unordered_map<std::string, std::shared_ptr<base>>;
+#endif
+
+#if defined(CPPTOML_NO_EXCEPTIONS)
+// If defined, exception handling will be disabled. In some cases, originally
+// thrown exceptions will now result in an abort using std::exit. In other
+// cases, caught exceptions are now passed on. Where exception handling is
+// used for control flow, it is replaced by other (maybe more costly) means.
+#define THROW_(exception, reason) die(reason, __FILE__, __LINE__)
+#define THROW2_(exception, reason, input_line)                                 \
+    die(reason, input_line, __FILE__, __LINE__)
+
+[[noreturn]] inline void die(const std::string& reason, const std::string& file,
+                             const int line) {
+    std::cerr << file << ":" << std::to_string(line) << ": error: " << reason
+              << std::endl;
+    std::exit(1);
+}
+
+[[noreturn]] inline void die(const std::string& reason, const int input_line,
+                             const std::string& file, const int line)
+{
+    std::cerr << file << ":" << std::to_string(line) << ": error: " << reason
+              << " at line " << input_line << std::endl;
+    std::exit(1);
+}
+#else
+#define THROW_(exception, reason) throw exception{reason}
+#define THROW2_(exception, reason, input_line) throw exception{reason, input_line}
 #endif
 
 template <class T>
@@ -339,13 +368,13 @@ struct value_traits<T,
     static value_type construct(T&& val)
     {
         if (val < (std::numeric_limits<int64_t>::min)())
-            throw std::underflow_error{"constructed value cannot be "
-                                       "represented by a 64-bit signed "
-                                       "integer"};
+            THROW_(std::underflow_error, "constructed value cannot be "
+                                         "represented by a 64-bit signed "
+                                         "integer");
 
         if (val > (std::numeric_limits<int64_t>::max)())
-            throw std::overflow_error{"constructed value cannot be represented "
-                                      "by a 64-bit signed integer"};
+            THROW_(std::overflow_error, "constructed value cannot be represented "
+                                        "by a 64-bit signed integer");
 
         return static_cast<int64_t>(val);
     }
@@ -365,8 +394,8 @@ struct value_traits<T,
     static value_type construct(T&& val)
     {
         if (val > static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
-            throw std::overflow_error{"constructed value cannot be represented "
-                                      "by a 64-bit signed integer"};
+            THROW_(std::overflow_error, "constructed value cannot be represented "
+                                        "by a 64-bit signed integer");
 
         return static_cast<int64_t>(val);
     }
@@ -744,7 +773,7 @@ class array : public base
         }
         else
         {
-            throw array_exception{"Arrays must be homogenous."};
+            THROW_(array_exception, "Arrays must be homogenous.");
         }
     }
 
@@ -759,7 +788,7 @@ class array : public base
         }
         else
         {
-            throw array_exception{"Arrays must be homogenous."};
+            THROW_(array_exception, "Arrays must be homogenous.");
         }
     }
 
@@ -785,7 +814,7 @@ class array : public base
         }
         else
         {
-            throw array_exception{"Arrays must be homogenous."};
+            THROW_(array_exception, "Arrays must be homogenous.");
         }
     }
 
@@ -800,7 +829,7 @@ class array : public base
         }
         else
         {
-            throw array_exception{"Arrays must be homogenous."};
+            THROW_(array_exception, "Arrays must be homogenous.");
         }
     }
 
@@ -1034,12 +1063,12 @@ get_impl(const std::shared_ptr<base>& elem)
     if (auto v = elem->as<int64_t>())
     {
         if (v->get() < (std::numeric_limits<T>::min)())
-            throw std::underflow_error{
-                "T cannot represent the value requested in get"};
+            THROW_(std::underflow_error,
+                "T cannot represent the value requested in get");
 
         if (v->get() > (std::numeric_limits<T>::max)())
-            throw std::overflow_error{
-                "T cannot represent the value requested in get"};
+            THROW_(std::overflow_error,
+                "T cannot represent the value requested in get");
 
         return {static_cast<T>(v->get())};
     }
@@ -1058,11 +1087,12 @@ get_impl(const std::shared_ptr<base>& elem)
     if (auto v = elem->as<int64_t>())
     {
         if (v->get() < 0)
-            throw std::underflow_error{"T cannot store negative value in get"};
+            THROW_(std::underflow_error,
+                   "T cannot store negative value in get");
 
         if (static_cast<uint64_t>(v->get()) > (std::numeric_limits<T>::max)())
-            throw std::overflow_error{
-                "T cannot represent the value requested in get"};
+            THROW_(std::overflow_error,
+                   "T cannot represent the value requested in get");
 
         return {static_cast<T>(v->get())};
     }
@@ -1250,6 +1280,7 @@ class table : public base
     template <class T>
     option<T> get_as(const std::string& key) const
     {
+#ifndef CPPTOML_NO_EXCEPTIONS
         try
         {
             return get_impl<T>(get(key));
@@ -1258,6 +1289,16 @@ class table : public base
         {
             return {};
         }
+#else
+        if (contains(key))
+        {
+            return get_impl<T>(get(key));
+        }
+        else
+        {
+            return {};
+        }
+#endif
     }
 
     /**
@@ -1268,6 +1309,7 @@ class table : public base
     template <class T>
     option<T> get_qualified_as(const std::string& key) const
     {
+#ifndef CPPTOML_NO_EXCEPTIONS
         try
         {
             return get_impl<T>(get_qualified(key));
@@ -1276,6 +1318,16 @@ class table : public base
         {
             return {};
         }
+#else
+        if (contains_qualified(key))
+        {
+            return get_impl<T>(get_qualified(key));
+        }
+        else
+        {
+            return {};
+        }
+#endif
     }
 
     /**
@@ -1413,7 +1465,7 @@ class table : public base
                 if (!p)
                     return false;
 
-                throw std::out_of_range{key + " is not a valid key"};
+                THROW_(std::out_of_range, key + " is not a valid key");
             }
         }
 
@@ -1714,7 +1766,7 @@ class parser
 #endif
         void throw_parse_exception(const std::string& err)
     {
-        throw parse_exception{err, line_number_};
+        THROW2_(parse_exception, err, line_number_);
     }
 
     void parse_table(std::string::iterator& it,
@@ -2433,10 +2485,13 @@ class parser
         std::string v{it, end};
         v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
+#ifndef CPPTOML_NO_EXCEPTIONS
         try
+#endif
         {
             return make_value<int64_t>(std::stoll(v));
         }
+#ifndef CPPTOML_NO_EXCEPTIONS
         catch (const std::invalid_argument& ex)
         {
             throw_parse_exception("Malformed number (invalid argument: "
@@ -2447,6 +2502,7 @@ class parser
             throw_parse_exception("Malformed number (out of range: "
                                   + std::string{ex.what()} + ")");
         }
+#endif
     }
 
     std::shared_ptr<value<double>> parse_float(std::string::iterator& it,
@@ -2457,10 +2513,13 @@ class parser
         it = end;
         char decimal_point = std::localeconv()->decimal_point[0];
         std::replace(v.begin(), v.end(), '.', decimal_point);
+#ifndef CPPTOML_NO_EXCEPTIONS
         try
+#endif
         {
             return make_value<double>(std::stod(v));
         }
+#ifndef CPPTOML_NO_EXCEPTIONS
         catch (const std::invalid_argument& ex)
         {
             throw_parse_exception("Malformed number (invalid argument: "
@@ -2471,6 +2530,7 @@ class parser
             throw_parse_exception("Malformed number (out of range: "
                                   + std::string{ex.what()} + ")");
         }
+#endif
     }
 
     std::shared_ptr<value<bool>> parse_bool(std::string::iterator& it,
@@ -2848,7 +2908,7 @@ inline std::shared_ptr<table> parse_file(const std::string& filename)
     std::ifstream file{filename};
 #endif
     if (!file.is_open())
-        throw parse_exception{filename + " could not be opened for parsing"};
+        THROW_(parse_exception, filename + " could not be opened for parsing");
     parser p{file};
     return p.parse();
 }
@@ -3278,4 +3338,11 @@ inline std::ostream& operator<<(std::ostream& stream, const array& a)
     return stream;
 }
 }
+
+#if defined(CPPTOML_NO_EXCEPTIONS)
+// undefine local macros such that they do not leak outside this file
+#undef THROW_
+#undef THROW2_
+#endif
+
 #endif
