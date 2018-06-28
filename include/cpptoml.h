@@ -2850,9 +2850,9 @@ class parser
         auto arr = make_array();
         while (it != end && *it != ']')
         {
-            auto value = parse_value(it, end);
-            if (auto v = value->as<Value>())
-                arr->get().push_back(value);
+            auto val = parse_value(it, end);
+            if (auto v = val->as<Value>())
+                arr->get().push_back(val);
             else
                 throw_parse_exception("Arrays must be homogeneous");
             skip_whitespace_and_comments(it, end);
