@@ -1928,7 +1928,12 @@ class parser
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
                 if (b->is_table())
                     curr_table = static_cast<table*>(b.get());
                 else if (b->is_table_array())
@@ -2009,7 +2014,12 @@ class parser
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
 
                 // if this is the end of the table array name, add an
                 // element to the table array that we just looked up
