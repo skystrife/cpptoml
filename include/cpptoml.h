@@ -295,13 +295,12 @@ struct valid_value_or_string_convertible
 };
 
 template <class T>
-struct value_traits<T, typename std::
-                           enable_if<valid_value_or_string_convertible<T>::
-                                         value>::type>
+struct value_traits<T, typename std::enable_if<
+                           valid_value_or_string_convertible<T>::value>::type>
 {
-    using value_type = typename std::
-        conditional<valid_value<typename std::decay<T>::type>::value,
-                    typename std::decay<T>::type, std::string>::type;
+    using value_type = typename std::conditional<
+        valid_value<typename std::decay<T>::type>::value,
+        typename std::decay<T>::type, std::string>::type;
 
     using type = value<value_type>;
 
@@ -312,12 +311,11 @@ struct value_traits<T, typename std::
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_floating_point<
-                                         typename std::decay<T>::type>::value>::
-                            type>
+struct value_traits<
+    T,
+    typename std::enable_if<
+        !valid_value_or_string_convertible<T>::value
+        && std::is_floating_point<typename std::decay<T>::type>::value>::type>
 {
     using value_type = typename std::decay<T>::type;
 
@@ -330,11 +328,10 @@ struct value_traits<T,
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_signed<typename std::decay<T>::
-                                                        type>::value>::type>
+struct value_traits<
+    T, typename std::enable_if<
+           !valid_value_or_string_convertible<T>::value
+           && std::is_signed<typename std::decay<T>::type>::value>::type>
 {
     using value_type = int64_t;
 
@@ -356,11 +353,10 @@ struct value_traits<T,
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_unsigned<typename std::decay<T>::
-                                                          type>::value>::type>
+struct value_traits<
+    T, typename std::enable_if<
+           !valid_value_or_string_convertible<T>::value
+           && std::is_unsigned<typename std::decay<T>::type>::value>::type>
 {
     using value_type = int64_t;
 
@@ -576,7 +572,7 @@ class base : public std::enable_shared_from_this<base>
 #if defined(CPPTOML_NO_RTTI)
     base_type type() const
     {
-      return type_;
+        return type_;
     }
 
   protected:
@@ -698,7 +694,7 @@ inline std::shared_ptr<value<double>> base::as()
     if (type() == base_type::INT)
     {
         auto v = std::static_pointer_cast<value<int64_t>>(shared_from_this());
-        return make_value<double>(static_cast<double>(v->get()));;
+        return make_value<double>(static_cast<double>(v->get()));
     }
 #else
     if (auto v = std::dynamic_pointer_cast<value<double>>(shared_from_this()))
@@ -731,7 +727,8 @@ inline std::shared_ptr<const value<double>> base::as() const
 {
 #if defined(CPPTOML_NO_RTTI)
     if (type() == base_type::FLOAT)
-        return std::static_pointer_cast<const value<double>>(shared_from_this());
+        return std::static_pointer_cast<const value<double>>(
+            shared_from_this());
 
     if (type() == base_type::INT)
     {
@@ -1830,7 +1827,7 @@ inline std::istream& getline(std::istream& input, std::string& line)
         line.push_back(static_cast<char>(c));
     }
 }
-}
+} // namespace detail
 
 /**
  * The parser class.
@@ -1945,7 +1942,6 @@ class parser
                 curr_table->insert(part, make_table());
                 curr_table = static_cast<table*>(curr_table->get(part).get());
             }
-
         };
 
         key_part_handler(parse_key(it, end, key_end, key_part_handler));
@@ -1976,8 +1972,9 @@ class parser
             // since it has already been defined. If there aren't any
             // values, then it was implicitly created by something like
             // [a.b]
-            if (curr_table->empty() || std::any_of(curr_table->begin(),
-                                                   curr_table->end(), is_value))
+            if (curr_table->empty()
+                || std::any_of(curr_table->begin(), curr_table->end(),
+                               is_value))
             {
                 throw_parse_exception("Redefinition of table "
                                       + full_table_name);
@@ -1996,12 +1993,10 @@ class parser
         if (it == end || *it == ']')
             throw_parse_exception("Table array name cannot be empty");
 
-
         auto key_end = [](char c) { return c == ']'; };
 
         std::string full_ta_name;
-        auto key_part_handler = [&](const std::string& part)
-        {
+        auto key_part_handler = [&](const std::string& part) {
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
 
@@ -2257,7 +2252,7 @@ class parser
     parse_type determine_value_type(const std::string::iterator& it,
                                     const std::string::iterator& end)
     {
-        if(it == end)
+        if (it == end)
         {
             throw_parse_exception("Failed to parse value type");
         }
@@ -2586,8 +2581,9 @@ class parser
     {
         if (is_number(c))
             return static_cast<uint32_t>(c - '0');
-        return 10 + static_cast<uint32_t>(
-                        c - ((c >= 'a' && c <= 'f') ? 'a' : 'A'));
+        return 10
+               + static_cast<uint32_t>(c
+                                       - ((c >= 'a' && c <= 'f') ? 'a' : 'A'));
     }
 
     std::shared_ptr<base> parse_number(std::string::iterator& it,
@@ -3350,9 +3346,9 @@ class toml_writer
      * offset_datetime.
      */
     template <class T>
-    typename std::enable_if<is_one_of<T, int64_t, local_date, local_time,
-                                      local_datetime,
-                                      offset_datetime>::value>::type
+    typename std::enable_if<
+        is_one_of<T, int64_t, local_date, local_time, local_datetime,
+                  offset_datetime>::value>::type
     write(const value<T>& v)
     {
         write(v.get());
@@ -3516,5 +3512,5 @@ inline std::ostream& operator<<(std::ostream& stream, const array& a)
     a.accept(writer);
     return stream;
 }
-}
+} // namespace cpptoml
 #endif
