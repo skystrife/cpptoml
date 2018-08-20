@@ -1914,16 +1914,15 @@ class parser
 
         std::string full_table_name;
         bool inserted = false;
-        while (it != end && *it != ']')
-        {
-            auto part = parse_key(it, end,
-                                  [](char c) { return c == '.' || c == ']'; });
 
+        auto key_end = [](char c) { return c == ']'; };
+
+        auto key_part_handler = [&](const std::string& part) {
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
 
             if (!full_table_name.empty())
-                full_table_name += ".";
+                full_table_name += '.';
             full_table_name += part;
 
             if (curr_table->contains(part))
@@ -1946,15 +1945,23 @@ class parser
                 curr_table->insert(part, make_table());
                 curr_table = static_cast<table*>(curr_table->get(part).get());
             }
-            consume_whitespace(it, end);
-            if (it != end && *it == '.')
-                ++it;
-            consume_whitespace(it, end);
-        }
+
+        };
+
+        key_part_handler(parse_key(it, end, key_end, key_part_handler));
 
         if (it == end)
             throw_parse_exception(
                 "Unterminated table declaration; did you forget a ']'?");
+
+        if (*it != ']')
+        {
+            std::string errmsg{"Unexpected character in table definition: "};
+            errmsg += '"';
+            errmsg += *it;
+            errmsg += '"';
+            throw_parse_exception(errmsg);
+        }
 
         // table already existed
         if (!inserted)
@@ -1989,23 +1996,18 @@ class parser
         if (it == end || *it == ']')
             throw_parse_exception("Table array name cannot be empty");
 
-        std::string full_ta_name;
-        while (it != end && *it != ']')
-        {
-            auto part = parse_key(it, end,
-                                  [](char c) { return c == '.' || c == ']'; });
 
+        auto key_end = [](char c) { return c == ']'; };
+
+        std::string full_ta_name;
+        auto key_part_handler = [&](const std::string& part)
+        {
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
 
             if (!full_ta_name.empty())
-                full_ta_name += ".";
+                full_ta_name += '.';
             full_ta_name += part;
-
-            consume_whitespace(it, end);
-            if (it != end && *it == '.')
-                ++it;
-            consume_whitespace(it, end);
 
             if (curr_table->contains(part))
             {
@@ -2059,15 +2061,16 @@ class parser
                         = static_cast<table*>(curr_table->get(part).get());
                 }
             }
-        }
+        };
+
+        key_part_handler(parse_key(it, end, key_end, key_part_handler));
 
         // consume the last "]]"
-        if (it == end)
+        auto eat = make_consumer(it, end, [this]() {
             throw_parse_exception("Unterminated table array name");
-        ++it;
-        if (it == end)
-            throw_parse_exception("Unterminated table array name");
-        ++it;
+        });
+        eat(']');
+        eat(']');
 
         consume_whitespace(it, end);
         eol_or_comment(it, end);
@@ -2076,7 +2079,35 @@ class parser
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
                          table* curr_table)
     {
-        auto key = parse_key(it, end, [](char c) { return c == '='; });
+        auto key_end = [](char c) { return c == '='; };
+
+        auto key_part_handler = [&](const std::string& part) {
+            // two cases: this key part exists already, in which case it must
+            // be a table, or it doesn't exist in which case we must create
+            // an implicitly defined table
+            if (curr_table->contains(part))
+            {
+                auto val = curr_table->get(part);
+                if (val->is_table())
+                {
+                    curr_table = static_cast<table*>(val.get());
+                }
+                else
+                {
+                    throw_parse_exception("Key " + part
+                                          + " already exists as a value");
+                }
+            }
+            else
+            {
+                auto newtable = make_table();
+                curr_table->insert(part, newtable);
+                curr_table = newtable.get();
+            }
+        };
+
+        auto key = parse_key(it, end, key_end, key_part_handler);
+
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (it == end || *it != '=')
@@ -2087,18 +2118,57 @@ class parser
         consume_whitespace(it, end);
     }
 
-    template <class Function>
-    std::string parse_key(std::string::iterator& it,
-                          const std::string::iterator& end, Function&& fun)
+    template <class KeyEndFinder, class KeyPartHandler>
+    std::string
+    parse_key(std::string::iterator& it, const std::string::iterator& end,
+              KeyEndFinder&& key_end, KeyPartHandler&& key_part_handler)
+    {
+        // parse the key as a series of one or more simple-keys joined with '.'
+        while (it != end && !key_end(*it))
+        {
+            auto part = parse_simple_key(it, end);
+            consume_whitespace(it, end);
+
+            if (it == end || key_end(*it))
+            {
+                return part;
+            }
+
+            if (*it != '.')
+            {
+                std::string errmsg{"Unexpected character in key: "};
+                errmsg += '"';
+                errmsg += *it;
+                errmsg += '"';
+                throw_parse_exception(errmsg);
+            }
+
+            key_part_handler(part);
+
+            // consume the dot
+            ++it;
+        }
+
+        throw_parse_exception("Unexpected end of key");
+    }
+
+    std::string parse_simple_key(std::string::iterator& it,
+                                 const std::string::iterator& end)
     {
         consume_whitespace(it, end);
-        if (*it == '"')
+
+        if (it == end)
+            throw_parse_exception("Unexpected end of key (blank key?)");
+
+        if (*it == '"' || *it == '\'')
         {
-            return parse_quoted_key(it, end);
+            return string_literal(it, end, *it);
         }
         else
         {
-            auto bke = std::find_if(it, end, std::forward<Function>(fun));
+            auto bke = std::find_if(it, end, [](char c) {
+                return c == '.' || c == '=' || c == ']';
+            });
             return parse_bare_key(it, bke);
         }
     }
@@ -2140,12 +2210,6 @@ class parser
 
         it = end;
         return key;
-    }
-
-    std::string parse_quoted_key(std::string::iterator& it,
-                                 const std::string::iterator& end)
-    {
-        return string_literal(it, end, '"');
     }
 
     enum class parse_type
@@ -2283,57 +2347,56 @@ class parser
         bool consuming = false;
         std::shared_ptr<value<std::string>> ret;
 
-        auto handle_line
-            = [&](std::string::iterator& local_it,
-                  std::string::iterator& local_end) {
-                  if (consuming)
-                  {
-                      local_it = std::find_if_not(local_it, local_end, is_ws);
+        auto handle_line = [&](std::string::iterator& local_it,
+                               std::string::iterator& local_end) {
+            if (consuming)
+            {
+                local_it = std::find_if_not(local_it, local_end, is_ws);
 
-                      // whole line is whitespace
-                      if (local_it == local_end)
-                          return;
-                  }
+                // whole line is whitespace
+                if (local_it == local_end)
+                    return;
+            }
 
-                  consuming = false;
+            consuming = false;
 
-                  while (local_it != local_end)
-                  {
-                      // handle escaped characters
-                      if (delim == '"' && *local_it == '\\')
-                      {
-                          auto check = local_it;
-                          // check if this is an actual escape sequence or a
-                          // whitespace escaping backslash
-                          ++check;
-                          consume_whitespace(check, local_end);
-                          if (check == local_end)
-                          {
-                              consuming = true;
-                              break;
-                          }
+            while (local_it != local_end)
+            {
+                // handle escaped characters
+                if (delim == '"' && *local_it == '\\')
+                {
+                    auto check = local_it;
+                    // check if this is an actual escape sequence or a
+                    // whitespace escaping backslash
+                    ++check;
+                    consume_whitespace(check, local_end);
+                    if (check == local_end)
+                    {
+                        consuming = true;
+                        break;
+                    }
 
-                          ss << parse_escape_code(local_it, local_end);
-                          continue;
-                      }
+                    ss << parse_escape_code(local_it, local_end);
+                    continue;
+                }
 
-                      // if we can end the string
-                      if (std::distance(local_it, local_end) >= 3)
-                      {
-                          auto check = local_it;
-                          // check for """
-                          if (*check++ == delim && *check++ == delim
-                              && *check++ == delim)
-                          {
-                              local_it = check;
-                              ret = make_value<std::string>(ss.str());
-                              break;
-                          }
-                      }
+                // if we can end the string
+                if (std::distance(local_it, local_end) >= 3)
+                {
+                    auto check = local_it;
+                    // check for """
+                    if (*check++ == delim && *check++ == delim
+                        && *check++ == delim)
+                    {
+                        local_it = check;
+                        ret = make_value<std::string>(ss.str());
+                        break;
+                    }
+                }
 
-                      ss << *local_it++;
-                  }
-              };
+                ss << *local_it++;
+            }
+        };
 
         // handle the remainder of the current line
         handle_line(it, end);
