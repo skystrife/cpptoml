@@ -391,10 +391,15 @@ struct array_of_trait<array>
 template <class T>
 inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val);
 inline std::shared_ptr<array> make_array();
+
+namespace detail
+{
 template <class T>
 inline std::shared_ptr<T> make_element();
+}
+
 inline std::shared_ptr<table> make_table();
-inline std::shared_ptr<table_array> make_table_array();
+inline std::shared_ptr<table_array> make_table_array(bool is_inline = false);
 
 #if defined(CPPTOML_NO_RTTI)
 /// Base type used to store underlying data type explicitly if RTTI is disabled
@@ -1024,11 +1029,14 @@ inline std::shared_ptr<array> make_array()
     return std::make_shared<make_shared_enabler>();
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<array> make_element<array>()
 {
     return make_array();
 }
+} // namespace detail
 
 /**
  * Obtains a option<vector<T>>. The option will be empty if the array
@@ -1057,7 +1065,7 @@ class table;
 class table_array : public base
 {
     friend class table;
-    friend std::shared_ptr<table_array> make_table_array();
+    friend std::shared_ptr<table_array> make_table_array(bool);
 
   public:
     std::shared_ptr<base> clone() const override;
@@ -1149,14 +1157,25 @@ class table_array : public base
         array_.reserve(n);
     }
 
+    /**
+     * Whether or not the table array is declared inline. This mostly
+     * matters for parsing, where statically defined arrays cannot be
+     * appended to using the array-of-table syntax.
+     */
+    bool is_inline() const
+    {
+        return is_inline_;
+    }
+
   private:
 #if defined(CPPTOML_NO_RTTI)
-    table_array() : base(base_type::TABLE_ARRAY)
+    table_array(bool is_inline = false)
+        : base(base_type::TABLE_ARRAY), is_inline_(is_inline)
     {
         // nothing
     }
 #else
-    table_array()
+    table_array(bool is_inline = false) : is_inline_(is_inline)
     {
         // nothing
     }
@@ -1166,26 +1185,30 @@ class table_array : public base
     table_array& operator=(const table_array& rhs) = delete;
 
     std::vector<std::shared_ptr<table>> array_;
+    const bool is_inline_ = false;
 };
 
-inline std::shared_ptr<table_array> make_table_array()
+inline std::shared_ptr<table_array> make_table_array(bool is_inline)
 {
     struct make_shared_enabler : public table_array
     {
-        make_shared_enabler()
+        make_shared_enabler(bool mse_is_inline) : table_array(mse_is_inline)
         {
             // nothing
         }
     };
 
-    return std::make_shared<make_shared_enabler>();
+    return std::make_shared<make_shared_enabler>(is_inline);
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<table_array> make_element<table_array>()
 {
-    return make_table_array();
+    return make_table_array(true);
 }
+} // namespace detail
 
 // The below are overloads for fetching specific value types out of a value
 // where special casting behavior (like bounds checking) is desired
@@ -1676,11 +1699,14 @@ std::shared_ptr<table> make_table()
     return std::make_shared<make_shared_enabler>();
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<table> make_element<table>()
 {
     return make_table();
 }
+} // namespace detail
 
 template <class T>
 std::shared_ptr<base> value<T>::clone() const
@@ -1699,7 +1725,7 @@ inline std::shared_ptr<base> array::clone() const
 
 inline std::shared_ptr<base> table_array::clone() const
 {
-    auto result = make_table_array();
+    auto result = make_table_array(is_inline());
     result->reserve(array_.size());
     for (const auto& ptr : array_)
         result->array_.push_back(ptr->clone()->as_table());
@@ -2021,13 +2047,24 @@ class parser
                 auto b = curr_table->get(part);
 
                 // if this is the end of the table array name, add an
-                // element to the table array that we just looked up
+                // element to the table array that we just looked up,
+                // provided it was not declared inline
                 if (it != end && *it == ']')
                 {
                     if (!b->is_table_array())
+                    {
                         throw_parse_exception("Key " + full_ta_name
                                               + " is not a table array");
+                    }
+
                     auto v = b->as_table_array();
+
+                    if (v->is_inline())
+                    {
+                        throw_parse_exception("Static array " + full_ta_name
+                                              + " cannot be appended to");
+                    }
+
                     v->get().push_back(make_table());
                     curr_table = v->get().back().get();
                 }
@@ -3014,7 +3051,7 @@ class parser
                                                std::string::iterator& it,
                                                std::string::iterator& end)
     {
-        auto arr = make_element<Object>();
+        auto arr = detail::make_element<Object>();
 
         while (it != end && *it != ']')
         {
@@ -3024,7 +3061,7 @@ class parser
             arr->get().push_back(((*this).*fun)(it, end));
             skip_whitespace_and_comments(it, end);
 
-            if (*it != ',')
+            if (it == end || *it != ',')
                 break;
 
             ++it;
