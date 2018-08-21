@@ -3368,12 +3368,21 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
-        std::ios::fmtflags flags{stream_.flags()};
+        std::stringstream ss;
+        ss << std::showpoint
+           << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << v.get();
 
-        stream_ << std::showpoint;
-        write(v.get());
+        auto double_str = ss.str();
+        auto pos = double_str.find("e0");
+        if (pos != std::string::npos)
+            double_str.replace(pos, 2, "e");
+        pos = double_str.find("e-0");
+        if (pos != std::string::npos)
+            double_str.replace(pos, 3, "e-");
 
-        stream_.flags(flags);
+        stream_ << double_str;
+        has_naked_endline_ = false;
     }
 
     /**
