@@ -2273,7 +2273,11 @@ class parser
         {
             return *dtype;
         }
-        else if (is_number(*it) || *it == '-' || *it == '+')
+        else if (is_number(*it) || *it == '-' || *it == '+'
+                 || (*it == 'i' && it + 1 != end && it[1] == 'n'
+                     && it + 2 != end && it[2] == 'f')
+                 || (*it == 'n' && it + 1 != end && it[1] == 'a'
+                     && it + 2 != end && it[2] == 'n'))
         {
             return determine_number_type(it, end);
         }
@@ -2299,6 +2303,13 @@ class parser
         auto check_it = it;
         if (*check_it == '-' || *check_it == '+')
             ++check_it;
+
+        if (check_it == end)
+            throw_parse_exception("Malformed number");
+
+        if (*check_it == 'i' || *check_it == 'n')
+            return parse_type::FLOAT;
+
         while (check_it != end && is_number(*check_it))
             ++check_it;
         if (check_it != end && *check_it == '.')
@@ -2657,6 +2668,28 @@ class parser
 
         eat_sign();
         check_no_leading_zero();
+
+        if (check_it != end && check_it + 1 != end && check_it + 2 != end)
+        {
+            if (check_it[0] == 'i' && check_it[1] == 'n' && check_it[2] == 'f')
+            {
+                auto val = std::numeric_limits<double>::infinity();
+                if (*it == '-')
+                    val = -val;
+                it = check_it + 3;
+                return make_value(val);
+            }
+            else if (check_it[0] == 'n' && check_it[1] == 'a'
+                     && check_it[2] == 'n')
+            {
+                auto val = std::numeric_limits<double>::quiet_NaN();
+                if (*it == '-')
+                    val = -val;
+                it = check_it + 3;
+                return make_value(val);
+            }
+        }
+
         eat_numbers();
 
         if (check_it != end
@@ -2768,10 +2801,19 @@ class parser
     std::string::iterator find_end_of_number(std::string::iterator it,
                                              std::string::iterator end)
     {
-        return std::find_if(it, end, [](char c) {
+        auto ret = std::find_if(it, end, [](char c) {
             return !is_number(c) && c != '_' && c != '.' && c != 'e' && c != 'E'
                    && c != '-' && c != '+' && c != 'x' && c != 'o' && c != 'b';
         });
+        if (ret != end && ret + 1 != end && ret + 2 != end)
+        {
+            if ((ret[0] == 'i' && ret[1] == 'n' && ret[2] == 'f')
+                || (ret[0] == 'n' && ret[1] == 'a' && ret[2] == 'n'))
+            {
+                ret = ret + 3;
+            }
+        }
+        return ret;
     }
 
     std::string::iterator find_end_of_date(std::string::iterator it,
