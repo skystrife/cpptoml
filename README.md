@@ -1,13 +1,15 @@
 # cpptoml
 A header-only library for parsing [TOML][toml] configuration files.
 
-Targets: [TOML v0.4.0][currver] as of February 2015.
+Targets: [TOML v0.5.0][currver] as of August 2018.
 
-It is reasonably conforming, with the exception of unicode escape
-characters in strings. This includes support for the new DateTime format,
-inline tables, multi-line basic and raw strings, and digit separators.
+This includes support for the new DateTime format, inline tables,
+multi-line basic and raw strings, digit separators, hexadecimal integers,
+octal integers, binary integers, and float special values.
 
 Alternatives:
+- [Boost.toml][boost.toml] is a C++ implementation of a TOML parser using
+  the Boost library. As of writing, it supports v0.5.0 as well.
 - [ctoml][ctoml] is a C++11 implementation of a TOML parser, but only
   supports v0.2.0.
 - [libtoml][libtoml] is a C implementation of a TOML parser, which can be
@@ -20,19 +22,12 @@ Alternatives:
 [![Build Status](https://travis-ci.org/skystrife/cpptoml.svg?branch=master)](https://travis-ci.org/skystrife/cpptoml)
 
 ## Test Results
-The following test is the only failing test from [the toml-test
-suite][toml-test]:
+
+From [the toml-test suite][toml-test]:
 
 ```
-Test: datetime-malformed-no-z (invalid)
-
-Expected an error, but no error was reported.
-
-77 passed, 1 failed
+117 passed, 0 failed
 ```
-
-This is due to cpptoml's support for extended Date-times (from the TOML
-master branch) and can safely be ignored.
 
 We also currently maintain (but hopefully not indefinitely!) a [fork of the
 toml-test suite][toml-test-fork] that adds tests for features and
@@ -40,7 +35,7 @@ clarifications that have been added to the TOML spec more recently than
 toml-test has been updated. We pass every test there.
 
 ```
-109 passed, 0 failed
+137 passed, 0 failed
 ```
 
 # Compilation
@@ -251,11 +246,11 @@ entire `cpptoml::table` for serialization.
 `build_toml.cpp` shows how to construct a TOML representation in-memory and
 then serialize it to a stream.
 
-[currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md
+[currver]: https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.5.0.md
 [toml]: https://github.com/toml-lang/toml
 [toml-test]: https://github.com/BurntSushi/toml-test
 [toml-test-fork]: https://github.com/skystrife/toml-test
 [ctoml]: https://github.com/evilncrazy/ctoml
 [libtoml]: https://github.com/ajwans/libtoml
 [tinytoml]: https://github.com/mayah/tinytoml
-[biicode]: https://www.biicode.com
+[boost.toml]: https://github.com/ToruNiina/Boost.toml
