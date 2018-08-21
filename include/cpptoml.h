@@ -1962,7 +1962,12 @@ class parser
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
                 if (b->is_table())
                     curr_table = static_cast<table*>(b.get());
                 else if (b->is_table_array())
@@ -2044,7 +2049,12 @@ class parser
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
 
                 // if this is the end of the table array name, add an
                 // element to the table array that we just looked up,
@@ -3030,9 +3040,9 @@ class parser
         auto arr = make_array();
         while (it != end && *it != ']')
         {
-            auto value = parse_value(it, end);
-            if (auto v = value->as<Value>())
-                arr->get().push_back(value);
+            auto val = parse_value(it, end);
+            if (auto v = val->as<Value>())
+                arr->get().push_back(val);
             else
                 throw_parse_exception("Arrays must be homogeneous");
             skip_whitespace_and_comments(it, end);
