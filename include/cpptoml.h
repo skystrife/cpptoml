@@ -1768,6 +1768,13 @@ class consumer
                       [&](char c) { (*this)(c); });
     }
 
+    void eat_or(char a, char b)
+    {
+        if (it_ == end_ || (*it_ != a && *it_ != b))
+            on_error_();
+        ++it_;
+    }
+
     int eat_digits(int len)
     {
         int val = 0;
@@ -2820,8 +2827,8 @@ class parser
                                            std::string::iterator end)
     {
         return std::find_if(it, end, [](char c) {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
+            return !is_number(c) && c != 'T' && c != ' ' && c != 'Z' && c != ':'
+                   && c != '-' && c != '+' && c != '.';
         });
     }
 
@@ -2890,7 +2897,7 @@ class parser
         if (it == date_end)
             return make_value(ldate);
 
-        eat('T');
+        eat.eat_or('T', ' ');
 
         local_datetime ldt;
         static_cast<local_date&>(ldt) = ldate;
@@ -3123,7 +3130,8 @@ class parser
         if (it[4] != '-' || it[7] != '-')
             return {};
 
-        if (len >= 19 && it[10] == 'T' && is_time(it + 11, date_end))
+        if (len >= 19 && (it[10] == 'T' || it[10] == ' ')
+            && is_time(it + 11, date_end))
         {
             // datetime type
             auto time_end = find_end_of_time(it + 11, date_end);
