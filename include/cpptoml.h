@@ -1735,6 +1735,11 @@ inline bool is_number(char c)
     return c >= '0' && c <= '9';
 }
 
+inline bool is_hex(char c)
+{
+    return is_number(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
 /**
  * Helper object for consuming expected characters.
  */
@@ -2572,11 +2577,6 @@ class parser
         return value;
     }
 
-    bool is_hex(char c)
-    {
-        return is_number(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-    }
-
     uint32_t hex_to_digit(char c)
     {
         if (is_number(c))
@@ -2597,25 +2597,6 @@ class parser
                 ++check_it;
         };
 
-        eat_sign();
-
-        auto eat_numbers = [&]() {
-            auto beg = check_it;
-            while (check_it != end && is_number(*check_it))
-            {
-                ++check_it;
-                if (check_it != end && *check_it == '_')
-                {
-                    ++check_it;
-                    if (check_it == end || !is_number(*check_it))
-                        throw_parse_exception("Malformed number");
-                }
-            }
-
-            if (check_it == beg)
-                throw_parse_exception("Malformed number");
-        };
-
         auto check_no_leading_zero = [&]() {
             if (check_it != end && *check_it == '0' && check_it + 1 != check_end
                 && check_it[1] != '.')
@@ -2624,6 +2605,57 @@ class parser
             }
         };
 
+        auto eat_digits = [&](bool (*check_char)(char)) {
+            auto beg = check_it;
+            while (check_it != end && check_char(*check_it))
+            {
+                ++check_it;
+                if (check_it != end && *check_it == '_')
+                {
+                    ++check_it;
+                    if (check_it == end || !check_char(*check_it))
+                        throw_parse_exception("Malformed number");
+                }
+            }
+
+            if (check_it == beg)
+                throw_parse_exception("Malformed number");
+        };
+
+        auto eat_hex = [&]() { eat_digits(&is_hex); };
+
+        auto eat_numbers = [&]() { eat_digits(&is_number); };
+
+        if (check_it != end && *check_it == '0' && check_it + 1 != check_end
+            && (check_it[1] == 'x' || check_it[1] == 'o' || check_it[1] == 'b'))
+        {
+            ++check_it;
+            char base = *check_it;
+            ++check_it;
+            if (base == 'x')
+            {
+                eat_hex();
+                return parse_int(it, check_it, 16);
+            }
+            else if (base == 'o')
+            {
+                auto start = check_it;
+                eat_numbers();
+                auto val = parse_int(start, check_it, 8, "0");
+                it = start;
+                return val;
+            }
+            else // if (base == 'b')
+            {
+                auto start = check_it;
+                eat_numbers();
+                auto val = parse_int(start, check_it, 2);
+                it = start;
+                return val;
+            }
+        }
+
+        eat_sign();
         check_no_leading_zero();
         eat_numbers();
 
@@ -2663,14 +2695,17 @@ class parser
     }
 
     std::shared_ptr<value<int64_t>> parse_int(std::string::iterator& it,
-                                              const std::string::iterator& end)
+                                              const std::string::iterator& end,
+                                              int base = 10,
+                                              const char* prefix = "")
     {
         std::string v{it, end};
+        v = prefix + v;
         v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
         try
         {
-            return make_value<int64_t>(std::stoll(v));
+            return make_value<int64_t>(std::stoll(v, nullptr, base));
         }
         catch (const std::invalid_argument& ex)
         {
@@ -2735,7 +2770,7 @@ class parser
     {
         return std::find_if(it, end, [](char c) {
             return !is_number(c) && c != '_' && c != '.' && c != 'e' && c != 'E'
-                   && c != '-' && c != '+';
+                   && c != '-' && c != '+' && c != 'x' && c != 'o' && c != 'b';
         });
     }
 
