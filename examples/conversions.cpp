@@ -53,5 +53,8 @@ int main()
 
     root->get_as<int64_t>("medium-negative");
 
+    root->insert("float", 0.1f);
+    root->get_as<double>("float");
+
     return 0;
 }

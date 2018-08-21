@@ -331,6 +331,7 @@ template <class T>
 struct value_traits<
     T, typename std::enable_if<
            !valid_value_or_string_convertible<T>::value
+           && !std::is_floating_point<typename std::decay<T>::type>::value
            && std::is_signed<typename std::decay<T>::type>::value>::type>
 {
     using value_type = int64_t;
