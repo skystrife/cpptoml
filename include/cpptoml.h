@@ -51,6 +51,10 @@ using string_to_base_map
     = std::unordered_map<std::string, std::shared_ptr<base>>;
 #endif
 
+// if defined, `base` will retain type information in form of an enum class
+// such that static_cast can be used instead of dynamic_cast
+// #define CPPTOML_NO_RTTI
+
 template <class T>
 class option
 {
@@ -291,13 +295,12 @@ struct valid_value_or_string_convertible
 };
 
 template <class T>
-struct value_traits<T, typename std::
-                           enable_if<valid_value_or_string_convertible<T>::
-                                         value>::type>
+struct value_traits<T, typename std::enable_if<
+                           valid_value_or_string_convertible<T>::value>::type>
 {
-    using value_type = typename std::
-        conditional<valid_value<typename std::decay<T>::type>::value,
-                    typename std::decay<T>::type, std::string>::type;
+    using value_type = typename std::conditional<
+        valid_value<typename std::decay<T>::type>::value,
+        typename std::decay<T>::type, std::string>::type;
 
     using type = value<value_type>;
 
@@ -308,12 +311,11 @@ struct value_traits<T, typename std::
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_floating_point<
-                                         typename std::decay<T>::type>::value>::
-                            type>
+struct value_traits<
+    T,
+    typename std::enable_if<
+        !valid_value_or_string_convertible<T>::value
+        && std::is_floating_point<typename std::decay<T>::type>::value>::type>
 {
     using value_type = typename std::decay<T>::type;
 
@@ -326,11 +328,11 @@ struct value_traits<T,
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_signed<typename std::decay<T>::
-                                                        type>::value>::type>
+struct value_traits<
+    T, typename std::enable_if<
+           !valid_value_or_string_convertible<T>::value
+           && !std::is_floating_point<typename std::decay<T>::type>::value
+           && std::is_signed<typename std::decay<T>::type>::value>::type>
 {
     using value_type = int64_t;
 
@@ -338,12 +340,12 @@ struct value_traits<T,
 
     static value_type construct(T&& val)
     {
-        if (val < std::numeric_limits<int64_t>::min())
+        if (val < (std::numeric_limits<int64_t>::min)())
             throw std::underflow_error{"constructed value cannot be "
                                        "represented by a 64-bit signed "
                                        "integer"};
 
-        if (val > std::numeric_limits<int64_t>::max())
+        if (val > (std::numeric_limits<int64_t>::max)())
             throw std::overflow_error{"constructed value cannot be represented "
                                       "by a 64-bit signed integer"};
 
@@ -352,11 +354,10 @@ struct value_traits<T,
 };
 
 template <class T>
-struct value_traits<T,
-                    typename std::
-                        enable_if<!valid_value_or_string_convertible<T>::value
-                                  && std::is_unsigned<typename std::decay<T>::
-                                                          type>::value>::type>
+struct value_traits<
+    T, typename std::enable_if<
+           !valid_value_or_string_convertible<T>::value
+           && std::is_unsigned<typename std::decay<T>::type>::value>::type>
 {
     using value_type = int64_t;
 
@@ -364,7 +365,7 @@ struct value_traits<T,
 
     static value_type construct(T&& val)
     {
-        if (val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+        if (val > static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
             throw std::overflow_error{"constructed value cannot be represented "
                                       "by a 64-bit signed integer"};
 
@@ -391,10 +392,104 @@ struct array_of_trait<array>
 template <class T>
 inline std::shared_ptr<typename value_traits<T>::type> make_value(T&& val);
 inline std::shared_ptr<array> make_array();
+
+namespace detail
+{
 template <class T>
 inline std::shared_ptr<T> make_element();
+}
+
 inline std::shared_ptr<table> make_table();
-inline std::shared_ptr<table_array> make_table_array();
+inline std::shared_ptr<table_array> make_table_array(bool is_inline = false);
+
+#if defined(CPPTOML_NO_RTTI)
+/// Base type used to store underlying data type explicitly if RTTI is disabled
+enum class base_type
+{
+    NONE,
+    STRING,
+    LOCAL_TIME,
+    LOCAL_DATE,
+    LOCAL_DATETIME,
+    OFFSET_DATETIME,
+    INT,
+    FLOAT,
+    BOOL,
+    TABLE,
+    ARRAY,
+    TABLE_ARRAY
+};
+
+/// Type traits class to convert C++ types to enum member
+template <class T>
+struct base_type_traits;
+
+template <>
+struct base_type_traits<std::string>
+{
+    static const base_type type = base_type::STRING;
+};
+
+template <>
+struct base_type_traits<local_time>
+{
+    static const base_type type = base_type::LOCAL_TIME;
+};
+
+template <>
+struct base_type_traits<local_date>
+{
+    static const base_type type = base_type::LOCAL_DATE;
+};
+
+template <>
+struct base_type_traits<local_datetime>
+{
+    static const base_type type = base_type::LOCAL_DATETIME;
+};
+
+template <>
+struct base_type_traits<offset_datetime>
+{
+    static const base_type type = base_type::OFFSET_DATETIME;
+};
+
+template <>
+struct base_type_traits<int64_t>
+{
+    static const base_type type = base_type::INT;
+};
+
+template <>
+struct base_type_traits<double>
+{
+    static const base_type type = base_type::FLOAT;
+};
+
+template <>
+struct base_type_traits<bool>
+{
+    static const base_type type = base_type::BOOL;
+};
+
+template <>
+struct base_type_traits<table>
+{
+    static const base_type type = base_type::TABLE;
+};
+
+template <>
+struct base_type_traits<array>
+{
+    static const base_type type = base_type::ARRAY;
+};
+
+template <>
+struct base_type_traits<table_array>
+{
+    static const base_type type = base_type::TABLE_ARRAY;
+};
+#endif
 
 /**
  * A generic base TOML value used for type erasure.
@@ -480,11 +575,28 @@ class base : public std::enable_shared_from_this<base>
     template <class Visitor, class... Args>
     void accept(Visitor&& visitor, Args&&... args) const;
 
+#if defined(CPPTOML_NO_RTTI)
+    base_type type() const
+    {
+        return type_;
+    }
+
+  protected:
+    base(const base_type t) : type_(t)
+    {
+        // nothing
+    }
+
+  private:
+    const base_type type_ = base_type::NONE;
+
+#else
   protected:
     base()
     {
         // nothing
     }
+#endif
 };
 
 /**
@@ -540,9 +652,15 @@ class value : public base
     /**
      * Constructs a value from the given data.
      */
+#if defined(CPPTOML_NO_RTTI)
+    value(const T& val) : base(base_type_traits<T>::type), data_(val)
+    {
+    }
+#else
     value(const T& val) : data_(val)
     {
     }
+#endif
 
     value(const value& val) = delete;
     value& operator=(const value& val) = delete;
@@ -560,7 +678,14 @@ std::shared_ptr<typename value_traits<T>::type> make_value(T&& val)
 template <class T>
 inline std::shared_ptr<value<T>> base::as()
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type_traits<T>::type)
+        return std::static_pointer_cast<value<T>>(shared_from_this());
+    else
+        return nullptr;
+#else
     return std::dynamic_pointer_cast<value<T>>(shared_from_this());
+#endif
 }
 
 // special case value<double> to allow getting an integer parameter as a
@@ -568,11 +693,22 @@ inline std::shared_ptr<value<T>> base::as()
 template <>
 inline std::shared_ptr<value<double>> base::as()
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type::FLOAT)
+        return std::static_pointer_cast<value<double>>(shared_from_this());
+
+    if (type() == base_type::INT)
+    {
+        auto v = std::static_pointer_cast<value<int64_t>>(shared_from_this());
+        return make_value<double>(static_cast<double>(v->get()));
+    }
+#else
     if (auto v = std::dynamic_pointer_cast<value<double>>(shared_from_this()))
         return v;
 
     if (auto v = std::dynamic_pointer_cast<value<int64_t>>(shared_from_this()))
         return make_value<double>(static_cast<double>(v->get()));
+#endif
 
     return nullptr;
 }
@@ -580,7 +716,14 @@ inline std::shared_ptr<value<double>> base::as()
 template <class T>
 inline std::shared_ptr<const value<T>> base::as() const
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type_traits<T>::type)
+        return std::static_pointer_cast<const value<T>>(shared_from_this());
+    else
+        return nullptr;
+#else
     return std::dynamic_pointer_cast<const value<T>>(shared_from_this());
+#endif
 }
 
 // special case value<double> to allow getting an integer parameter as a
@@ -588,6 +731,19 @@ inline std::shared_ptr<const value<T>> base::as() const
 template <>
 inline std::shared_ptr<const value<double>> base::as() const
 {
+#if defined(CPPTOML_NO_RTTI)
+    if (type() == base_type::FLOAT)
+        return std::static_pointer_cast<const value<double>>(
+            shared_from_this());
+
+    if (type() == base_type::INT)
+    {
+        auto v = as<int64_t>();
+        // the below has to be a non-const value<double> due to a bug in
+        // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
+        return make_value<double>(static_cast<double>(v->get()));
+    }
+#else
     if (auto v
         = std::dynamic_pointer_cast<const value<double>>(shared_from_this()))
         return v;
@@ -598,6 +754,7 @@ inline std::shared_ptr<const value<double>> base::as() const
         // libc++: https://llvm.org/bugs/show_bug.cgi?id=18843
         return make_value<double>(static_cast<double>(v->get()));
     }
+#endif
 
     return nullptr;
 }
@@ -839,7 +996,14 @@ class array : public base
     }
 
   private:
+#if defined(CPPTOML_NO_RTTI)
+    array() : base(base_type::ARRAY)
+    {
+        // empty
+    }
+#else
     array() = default;
+#endif
 
     template <class InputIterator>
     array(InputIterator begin, InputIterator end) : values_{begin, end}
@@ -866,11 +1030,14 @@ inline std::shared_ptr<array> make_array()
     return std::make_shared<make_shared_enabler>();
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<array> make_element<array>()
 {
     return make_array();
 }
+} // namespace detail
 
 /**
  * Obtains a option<vector<T>>. The option will be empty if the array
@@ -899,7 +1066,7 @@ class table;
 class table_array : public base
 {
     friend class table;
-    friend std::shared_ptr<table_array> make_table_array();
+    friend std::shared_ptr<table_array> make_table_array(bool);
 
   public:
     std::shared_ptr<base> clone() const override;
@@ -991,36 +1158,58 @@ class table_array : public base
         array_.reserve(n);
     }
 
+    /**
+     * Whether or not the table array is declared inline. This mostly
+     * matters for parsing, where statically defined arrays cannot be
+     * appended to using the array-of-table syntax.
+     */
+    bool is_inline() const
+    {
+        return is_inline_;
+    }
+
   private:
-    table_array()
+#if defined(CPPTOML_NO_RTTI)
+    table_array(bool is_inline = false)
+        : base(base_type::TABLE_ARRAY), is_inline_(is_inline)
     {
         // nothing
     }
+#else
+    table_array(bool is_inline = false) : is_inline_(is_inline)
+    {
+        // nothing
+    }
+#endif
 
     table_array(const table_array& obj) = delete;
     table_array& operator=(const table_array& rhs) = delete;
 
     std::vector<std::shared_ptr<table>> array_;
+    const bool is_inline_ = false;
 };
 
-inline std::shared_ptr<table_array> make_table_array()
+inline std::shared_ptr<table_array> make_table_array(bool is_inline)
 {
     struct make_shared_enabler : public table_array
     {
-        make_shared_enabler()
+        make_shared_enabler(bool mse_is_inline) : table_array(mse_is_inline)
         {
             // nothing
         }
     };
 
-    return std::make_shared<make_shared_enabler>();
+    return std::make_shared<make_shared_enabler>(is_inline);
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<table_array> make_element<table_array>()
 {
-    return make_table_array();
+    return make_table_array(true);
 }
+} // namespace detail
 
 // The below are overloads for fetching specific value types out of a value
 // where special casting behavior (like bounds checking) is desired
@@ -1033,11 +1222,11 @@ get_impl(const std::shared_ptr<base>& elem)
 {
     if (auto v = elem->as<int64_t>())
     {
-        if (v->get() < std::numeric_limits<T>::min())
+        if (v->get() < (std::numeric_limits<T>::min)())
             throw std::underflow_error{
                 "T cannot represent the value requested in get"};
 
-        if (v->get() > std::numeric_limits<T>::max())
+        if (v->get() > (std::numeric_limits<T>::max)())
             throw std::overflow_error{
                 "T cannot represent the value requested in get"};
 
@@ -1060,7 +1249,7 @@ get_impl(const std::shared_ptr<base>& elem)
         if (v->get() < 0)
             throw std::underflow_error{"T cannot store negative value in get"};
 
-        if (static_cast<uint64_t>(v->get()) > std::numeric_limits<T>::max())
+        if (static_cast<uint64_t>(v->get()) > (std::numeric_limits<T>::max)())
             throw std::overflow_error{
                 "T cannot represent the value requested in get"};
 
@@ -1369,10 +1558,17 @@ class table : public base
     }
 
   private:
+#if defined(CPPTOML_NO_RTTI)
+    table() : base(base_type::TABLE)
+    {
+        // nothing
+    }
+#else
     table()
     {
         // nothing
     }
+#endif
 
     table(const table& obj) = delete;
     table& operator=(const table& rhs) = delete;
@@ -1404,11 +1600,11 @@ class table : public base
         auto last_key = parts.back();
         parts.pop_back();
 
-        auto table = this;
+        auto cur_table = this;
         for (const auto& part : parts)
         {
-            table = table->get_table(part).get();
-            if (!table)
+            cur_table = cur_table->get_table(part).get();
+            if (!cur_table)
             {
                 if (!p)
                     return false;
@@ -1418,9 +1614,9 @@ class table : public base
         }
 
         if (!p)
-            return table->map_.count(last_key) != 0;
+            return cur_table->map_.count(last_key) != 0;
 
-        *p = table->map_.at(last_key);
+        *p = cur_table->map_.at(last_key);
         return true;
     }
 
@@ -1504,11 +1700,14 @@ std::shared_ptr<table> make_table()
     return std::make_shared<make_shared_enabler>();
 }
 
+namespace detail
+{
 template <>
 inline std::shared_ptr<table> make_element<table>()
 {
     return make_table();
 }
+} // namespace detail
 
 template <class T>
 std::shared_ptr<base> value<T>::clone() const
@@ -1527,7 +1726,7 @@ inline std::shared_ptr<base> array::clone() const
 
 inline std::shared_ptr<base> table_array::clone() const
 {
-    auto result = make_table_array();
+    auto result = make_table_array(is_inline());
     result->reserve(array_.size());
     for (const auto& ptr : array_)
         result->array_.push_back(ptr->clone()->as_table());
@@ -1563,6 +1762,11 @@ inline bool is_number(char c)
     return c >= '0' && c <= '9';
 }
 
+inline bool is_hex(char c)
+{
+    return is_number(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
 /**
  * Helper object for consuming expected characters.
  */
@@ -1589,6 +1793,13 @@ class consumer
     {
         std::for_each(std::begin(str), std::end(str) - 1,
                       [&](char c) { (*this)(c); });
+    }
+
+    void eat_or(char a, char b)
+    {
+        if (it_ == end_ || (*it_ != a && *it_ != b))
+            on_error_();
+        ++it_;
     }
 
     int eat_digits(int len)
@@ -1655,7 +1866,7 @@ inline std::istream& getline(std::istream& input, std::string& line)
         line.push_back(static_cast<char>(c));
     }
 }
-}
+} // namespace detail
 
 /**
  * The parser class.
@@ -1739,21 +1950,25 @@ class parser
 
         std::string full_table_name;
         bool inserted = false;
-        while (it != end && *it != ']')
-        {
-            auto part = parse_key(it, end,
-                                  [](char c) { return c == '.' || c == ']'; });
 
+        auto key_end = [](char c) { return c == ']'; };
+
+        auto key_part_handler = [&](const std::string& part) {
             if (part.empty())
                 throw_parse_exception("Empty component of table name");
 
             if (!full_table_name.empty())
-                full_table_name += ".";
+                full_table_name += '.';
             full_table_name += part;
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
                 if (b->is_table())
                     curr_table = static_cast<table*>(b.get());
                 else if (b->is_table_array())
@@ -1771,15 +1986,22 @@ class parser
                 curr_table->insert(part, make_table());
                 curr_table = static_cast<table*>(curr_table->get(part).get());
             }
-            consume_whitespace(it, end);
-            if (it != end && *it == '.')
-                ++it;
-            consume_whitespace(it, end);
-        }
+        };
+
+        key_part_handler(parse_key(it, end, key_end, key_part_handler));
 
         if (it == end)
             throw_parse_exception(
                 "Unterminated table declaration; did you forget a ']'?");
+
+        if (*it != ']')
+        {
+            std::string errmsg{"Unexpected character in table definition: "};
+            errmsg += '"';
+            errmsg += *it;
+            errmsg += '"';
+            throw_parse_exception(errmsg);
+        }
 
         // table already existed
         if (!inserted)
@@ -1794,8 +2016,9 @@ class parser
             // since it has already been defined. If there aren't any
             // values, then it was implicitly created by something like
             // [a.b]
-            if (curr_table->empty() || std::any_of(curr_table->begin(),
-                                                   curr_table->end(), is_value))
+            if (curr_table->empty()
+                || std::any_of(curr_table->begin(), curr_table->end(),
+                               is_value))
             {
                 throw_parse_exception("Redefinition of table "
                                       + full_table_name);
@@ -1814,36 +2037,45 @@ class parser
         if (it == end || *it == ']')
             throw_parse_exception("Table array name cannot be empty");
 
-        std::string full_ta_name;
-        while (it != end && *it != ']')
-        {
-            auto part = parse_key(it, end,
-                                  [](char c) { return c == '.' || c == ']'; });
+        auto key_end = [](char c) { return c == ']'; };
 
+        std::string full_ta_name;
+        auto key_part_handler = [&](const std::string& part) {
             if (part.empty())
                 throw_parse_exception("Empty component of table array name");
 
             if (!full_ta_name.empty())
-                full_ta_name += ".";
+                full_ta_name += '.';
             full_ta_name += part;
-
-            consume_whitespace(it, end);
-            if (it != end && *it == '.')
-                ++it;
-            consume_whitespace(it, end);
 
             if (curr_table->contains(part))
             {
+#if !defined(__PGI)
                 auto b = curr_table->get(part);
+#else
+                // Workaround for PGI compiler
+                std::shared_ptr<base> b = curr_table->get(part);
+#endif
 
                 // if this is the end of the table array name, add an
-                // element to the table array that we just looked up
+                // element to the table array that we just looked up,
+                // provided it was not declared inline
                 if (it != end && *it == ']')
                 {
                     if (!b->is_table_array())
+                    {
                         throw_parse_exception("Key " + full_ta_name
                                               + " is not a table array");
+                    }
+
                     auto v = b->as_table_array();
+
+                    if (v->is_inline())
+                    {
+                        throw_parse_exception("Static array " + full_ta_name
+                                              + " cannot be appended to");
+                    }
+
                     v->get().push_back(make_table());
                     curr_table = v->get().back().get();
                 }
@@ -1884,15 +2116,16 @@ class parser
                         = static_cast<table*>(curr_table->get(part).get());
                 }
             }
-        }
+        };
+
+        key_part_handler(parse_key(it, end, key_end, key_part_handler));
 
         // consume the last "]]"
-        if (it == end)
+        auto eat = make_consumer(it, end, [this]() {
             throw_parse_exception("Unterminated table array name");
-        ++it;
-        if (it == end)
-            throw_parse_exception("Unterminated table array name");
-        ++it;
+        });
+        eat(']');
+        eat(']');
 
         consume_whitespace(it, end);
         eol_or_comment(it, end);
@@ -1901,7 +2134,35 @@ class parser
     void parse_key_value(std::string::iterator& it, std::string::iterator& end,
                          table* curr_table)
     {
-        auto key = parse_key(it, end, [](char c) { return c == '='; });
+        auto key_end = [](char c) { return c == '='; };
+
+        auto key_part_handler = [&](const std::string& part) {
+            // two cases: this key part exists already, in which case it must
+            // be a table, or it doesn't exist in which case we must create
+            // an implicitly defined table
+            if (curr_table->contains(part))
+            {
+                auto val = curr_table->get(part);
+                if (val->is_table())
+                {
+                    curr_table = static_cast<table*>(val.get());
+                }
+                else
+                {
+                    throw_parse_exception("Key " + part
+                                          + " already exists as a value");
+                }
+            }
+            else
+            {
+                auto newtable = make_table();
+                curr_table->insert(part, newtable);
+                curr_table = newtable.get();
+            }
+        };
+
+        auto key = parse_key(it, end, key_end, key_part_handler);
+
         if (curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (it == end || *it != '=')
@@ -1912,18 +2173,57 @@ class parser
         consume_whitespace(it, end);
     }
 
-    template <class Function>
-    std::string parse_key(std::string::iterator& it,
-                          const std::string::iterator& end, Function&& fun)
+    template <class KeyEndFinder, class KeyPartHandler>
+    std::string
+    parse_key(std::string::iterator& it, const std::string::iterator& end,
+              KeyEndFinder&& key_end, KeyPartHandler&& key_part_handler)
+    {
+        // parse the key as a series of one or more simple-keys joined with '.'
+        while (it != end && !key_end(*it))
+        {
+            auto part = parse_simple_key(it, end);
+            consume_whitespace(it, end);
+
+            if (it == end || key_end(*it))
+            {
+                return part;
+            }
+
+            if (*it != '.')
+            {
+                std::string errmsg{"Unexpected character in key: "};
+                errmsg += '"';
+                errmsg += *it;
+                errmsg += '"';
+                throw_parse_exception(errmsg);
+            }
+
+            key_part_handler(part);
+
+            // consume the dot
+            ++it;
+        }
+
+        throw_parse_exception("Unexpected end of key");
+    }
+
+    std::string parse_simple_key(std::string::iterator& it,
+                                 const std::string::iterator& end)
     {
         consume_whitespace(it, end);
-        if (*it == '"')
+
+        if (it == end)
+            throw_parse_exception("Unexpected end of key (blank key?)");
+
+        if (*it == '"' || *it == '\'')
         {
-            return parse_quoted_key(it, end);
+            return string_literal(it, end, *it);
         }
         else
         {
-            auto bke = std::find_if(it, end, std::forward<Function>(fun));
+            auto bke = std::find_if(it, end, [](char c) {
+                return c == '.' || c == '=' || c == ']';
+            });
             return parse_bare_key(it, bke);
         }
     }
@@ -1965,12 +2265,6 @@ class parser
 
         it = end;
         return key;
-    }
-
-    std::string parse_quoted_key(std::string::iterator& it,
-                                 const std::string::iterator& end)
-    {
-        return string_literal(it, end, '"');
     }
 
     enum class parse_type
@@ -2018,7 +2312,7 @@ class parser
     parse_type determine_value_type(const std::string::iterator& it,
                                     const std::string::iterator& end)
     {
-        if(it == end)
+        if (it == end)
         {
             throw_parse_exception("Failed to parse value type");
         }
@@ -2034,7 +2328,11 @@ class parser
         {
             return *dtype;
         }
-        else if (is_number(*it) || *it == '-' || *it == '+')
+        else if (is_number(*it) || *it == '-' || *it == '+'
+                 || (*it == 'i' && it + 1 != end && it[1] == 'n'
+                     && it + 2 != end && it[2] == 'f')
+                 || (*it == 'n' && it + 1 != end && it[1] == 'a'
+                     && it + 2 != end && it[2] == 'n'))
         {
             return determine_number_type(it, end);
         }
@@ -2060,6 +2358,13 @@ class parser
         auto check_it = it;
         if (*check_it == '-' || *check_it == '+')
             ++check_it;
+
+        if (check_it == end)
+            throw_parse_exception("Malformed number");
+
+        if (*check_it == 'i' || *check_it == 'n')
+            return parse_type::FLOAT;
+
         while (check_it != end && is_number(*check_it))
             ++check_it;
         if (check_it != end && *check_it == '.')
@@ -2108,56 +2413,56 @@ class parser
         bool consuming = false;
         std::shared_ptr<value<std::string>> ret;
 
-        auto handle_line
-            = [&](std::string::iterator& it, std::string::iterator& end) {
-                  if (consuming)
-                  {
-                      it = std::find_if_not(it, end, is_ws);
+        auto handle_line = [&](std::string::iterator& local_it,
+                               std::string::iterator& local_end) {
+            if (consuming)
+            {
+                local_it = std::find_if_not(local_it, local_end, is_ws);
 
-                      // whole line is whitespace
-                      if (it == end)
-                          return;
-                  }
+                // whole line is whitespace
+                if (local_it == local_end)
+                    return;
+            }
 
-                  consuming = false;
+            consuming = false;
 
-                  while (it != end)
-                  {
-                      // handle escaped characters
-                      if (delim == '"' && *it == '\\')
-                      {
-                          auto check = it;
-                          // check if this is an actual escape sequence or a
-                          // whitespace escaping backslash
-                          ++check;
-                          consume_whitespace(check, end);
-                          if (check == end)
-                          {
-                              consuming = true;
-                              break;
-                          }
+            while (local_it != local_end)
+            {
+                // handle escaped characters
+                if (delim == '"' && *local_it == '\\')
+                {
+                    auto check = local_it;
+                    // check if this is an actual escape sequence or a
+                    // whitespace escaping backslash
+                    ++check;
+                    consume_whitespace(check, local_end);
+                    if (check == local_end)
+                    {
+                        consuming = true;
+                        break;
+                    }
 
-                          ss << parse_escape_code(it, end);
-                          continue;
-                      }
+                    ss << parse_escape_code(local_it, local_end);
+                    continue;
+                }
 
-                      // if we can end the string
-                      if (std::distance(it, end) >= 3)
-                      {
-                          auto check = it;
-                          // check for """
-                          if (*check++ == delim && *check++ == delim
-                              && *check++ == delim)
-                          {
-                              it = check;
-                              ret = make_value<std::string>(ss.str());
-                              break;
-                          }
-                      }
+                // if we can end the string
+                if (std::distance(local_it, local_end) >= 3)
+                {
+                    auto check = local_it;
+                    // check for """
+                    if (*check++ == delim && *check++ == delim
+                        && *check++ == delim)
+                    {
+                        local_it = check;
+                        ret = make_value<std::string>(ss.str());
+                        break;
+                    }
+                }
 
-                      ss << *it++;
-                  }
-              };
+                ss << *local_it++;
+            }
+        };
 
         // handle the remainder of the current line
         handle_line(it, end);
@@ -2338,17 +2643,13 @@ class parser
         return value;
     }
 
-    bool is_hex(char c)
-    {
-        return is_number(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-    }
-
     uint32_t hex_to_digit(char c)
     {
         if (is_number(c))
             return static_cast<uint32_t>(c - '0');
-        return 10 + static_cast<uint32_t>(
-                        c - ((c >= 'a' && c <= 'f') ? 'a' : 'A'));
+        return 10
+               + static_cast<uint32_t>(c
+                                       - ((c >= 'a' && c <= 'f') ? 'a' : 'A'));
     }
 
     std::shared_ptr<base> parse_number(std::string::iterator& it,
@@ -2362,25 +2663,6 @@ class parser
                 ++check_it;
         };
 
-        eat_sign();
-
-        auto eat_numbers = [&]() {
-            auto beg = check_it;
-            while (check_it != end && is_number(*check_it))
-            {
-                ++check_it;
-                if (check_it != end && *check_it == '_')
-                {
-                    ++check_it;
-                    if (check_it == end || !is_number(*check_it))
-                        throw_parse_exception("Malformed number");
-                }
-            }
-
-            if (check_it == beg)
-                throw_parse_exception("Malformed number");
-        };
-
         auto check_no_leading_zero = [&]() {
             if (check_it != end && *check_it == '0' && check_it + 1 != check_end
                 && check_it[1] != '.')
@@ -2389,7 +2671,80 @@ class parser
             }
         };
 
+        auto eat_digits = [&](bool (*check_char)(char)) {
+            auto beg = check_it;
+            while (check_it != end && check_char(*check_it))
+            {
+                ++check_it;
+                if (check_it != end && *check_it == '_')
+                {
+                    ++check_it;
+                    if (check_it == end || !check_char(*check_it))
+                        throw_parse_exception("Malformed number");
+                }
+            }
+
+            if (check_it == beg)
+                throw_parse_exception("Malformed number");
+        };
+
+        auto eat_hex = [&]() { eat_digits(&is_hex); };
+
+        auto eat_numbers = [&]() { eat_digits(&is_number); };
+
+        if (check_it != end && *check_it == '0' && check_it + 1 != check_end
+            && (check_it[1] == 'x' || check_it[1] == 'o' || check_it[1] == 'b'))
+        {
+            ++check_it;
+            char base = *check_it;
+            ++check_it;
+            if (base == 'x')
+            {
+                eat_hex();
+                return parse_int(it, check_it, 16);
+            }
+            else if (base == 'o')
+            {
+                auto start = check_it;
+                eat_numbers();
+                auto val = parse_int(start, check_it, 8, "0");
+                it = start;
+                return val;
+            }
+            else // if (base == 'b')
+            {
+                auto start = check_it;
+                eat_numbers();
+                auto val = parse_int(start, check_it, 2);
+                it = start;
+                return val;
+            }
+        }
+
+        eat_sign();
         check_no_leading_zero();
+
+        if (check_it != end && check_it + 1 != end && check_it + 2 != end)
+        {
+            if (check_it[0] == 'i' && check_it[1] == 'n' && check_it[2] == 'f')
+            {
+                auto val = std::numeric_limits<double>::infinity();
+                if (*it == '-')
+                    val = -val;
+                it = check_it + 3;
+                return make_value(val);
+            }
+            else if (check_it[0] == 'n' && check_it[1] == 'a'
+                     && check_it[2] == 'n')
+            {
+                auto val = std::numeric_limits<double>::quiet_NaN();
+                if (*it == '-')
+                    val = -val;
+                it = check_it + 3;
+                return make_value(val);
+            }
+        }
+
         eat_numbers();
 
         if (check_it != end
@@ -2428,14 +2783,17 @@ class parser
     }
 
     std::shared_ptr<value<int64_t>> parse_int(std::string::iterator& it,
-                                              const std::string::iterator& end)
+                                              const std::string::iterator& end,
+                                              int base = 10,
+                                              const char* prefix = "")
     {
         std::string v{it, end};
+        v = prefix + v;
         v.erase(std::remove(v.begin(), v.end(), '_'), v.end());
         it = end;
         try
         {
-            return make_value<int64_t>(std::stoll(v));
+            return make_value<int64_t>(std::stoll(v, nullptr, base));
         }
         catch (const std::invalid_argument& ex)
         {
@@ -2498,18 +2856,27 @@ class parser
     std::string::iterator find_end_of_number(std::string::iterator it,
                                              std::string::iterator end)
     {
-        return std::find_if(it, end, [](char c) {
+        auto ret = std::find_if(it, end, [](char c) {
             return !is_number(c) && c != '_' && c != '.' && c != 'e' && c != 'E'
-                   && c != '-' && c != '+';
+                   && c != '-' && c != '+' && c != 'x' && c != 'o' && c != 'b';
         });
+        if (ret != end && ret + 1 != end && ret + 2 != end)
+        {
+            if ((ret[0] == 'i' && ret[1] == 'n' && ret[2] == 'f')
+                || (ret[0] == 'n' && ret[1] == 'a' && ret[2] == 'n'))
+            {
+                ret = ret + 3;
+            }
+        }
+        return ret;
     }
 
     std::string::iterator find_end_of_date(std::string::iterator it,
                                            std::string::iterator end)
     {
         return std::find_if(it, end, [](char c) {
-            return !is_number(c) && c != 'T' && c != 'Z' && c != ':' && c != '-'
-                   && c != '+' && c != '.';
+            return !is_number(c) && c != 'T' && c != ' ' && c != 'Z' && c != ':'
+                   && c != '-' && c != '+' && c != '.';
         });
     }
 
@@ -2578,7 +2945,7 @@ class parser
         if (it == date_end)
             return make_value(ldate);
 
-        eat('T');
+        eat.eat_or('T', ' ');
 
         local_datetime ldt;
         static_cast<local_date&>(ldt) = ldate;
@@ -2674,11 +3041,11 @@ class parser
         auto arr = make_array();
         while (it != end && *it != ']')
         {
-            auto value = parse_value(it, end);
-            if (auto v = value->as<Value>())
-                arr->get().push_back(value);
+            auto val = parse_value(it, end);
+            if (auto v = val->as<Value>())
+                arr->get().push_back(val);
             else
-                throw_parse_exception("Arrays must be heterogeneous");
+                throw_parse_exception("Arrays must be homogeneous");
             skip_whitespace_and_comments(it, end);
             if (*it != ',')
                 break;
@@ -2695,7 +3062,7 @@ class parser
                                                std::string::iterator& it,
                                                std::string::iterator& end)
     {
-        auto arr = make_element<Object>();
+        auto arr = detail::make_element<Object>();
 
         while (it != end && *it != ']')
         {
@@ -2705,7 +3072,7 @@ class parser
             arr->get().push_back(((*this).*fun)(it, end));
             skip_whitespace_and_comments(it, end);
 
-            if (*it != ',')
+            if (it == end || *it != ',')
                 break;
 
             ++it;
@@ -2811,7 +3178,8 @@ class parser
         if (it[4] != '-' || it[7] != '-')
             return {};
 
-        if (len >= 19 && it[10] == 'T' && is_time(it + 11, date_end))
+        if (len >= 19 && (it[10] == 'T' || it[10] == ' ')
+            && is_time(it + 11, date_end))
         {
             // datetime type
             auto time_end = find_end_of_time(it + 11, date_end);
@@ -3098,12 +3466,21 @@ class toml_writer
      */
     void write(const value<double>& v)
     {
-        std::ios::fmtflags flags{stream_.flags()};
+        std::stringstream ss;
+        ss << std::showpoint
+           << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << v.get();
 
-        stream_ << std::showpoint;
-        write(v.get());
+        auto double_str = ss.str();
+        auto pos = double_str.find("e0");
+        if (pos != std::string::npos)
+            double_str.replace(pos, 2, "e");
+        pos = double_str.find("e-0");
+        if (pos != std::string::npos)
+            double_str.replace(pos, 3, "e-");
 
-        stream_.flags(flags);
+        stream_ << double_str;
+        has_naked_endline_ = false;
     }
 
     /**
@@ -3111,9 +3488,9 @@ class toml_writer
      * offset_datetime.
      */
     template <class T>
-    typename std::enable_if<is_one_of<T, int64_t, local_date, local_time,
-                                      local_datetime,
-                                      offset_datetime>::value>::type
+    typename std::enable_if<
+        is_one_of<T, int64_t, local_date, local_time, local_datetime,
+                  offset_datetime>::value>::type
     write(const value<T>& v)
     {
         write(v.get());
@@ -3277,5 +3654,5 @@ inline std::ostream& operator<<(std::ostream& stream, const array& a)
     a.accept(writer);
     return stream;
 }
-}
+} // namespace cpptoml
 #endif
