@@ -4,8 +4,8 @@
  * @date May 2013
  */
 
-#ifndef _CPPTOML_H_
-#define _CPPTOML_H_
+#ifndef CPPTOML_H
+#define CPPTOML_H
 
 #include <algorithm>
 #include <cassert>
@@ -3663,4 +3663,4 @@ inline std::ostream& operator<<(std::ostream& stream, const array& a)
     return stream;
 }
 } // namespace cpptoml
-#endif
+#endif // CPPTOML_H
