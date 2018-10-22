@@ -84,11 +84,12 @@ class option
         return &value_;
     }
 
-    const T& value_or(const T& alternative) const
+    template <class U>
+    T value_or(U&& alernative) const
     {
         if (!empty_)
             return value_;
-        return alternative;
+        return static_cast<T>(std::forward<U>(alternative));
     }
 
   private:
