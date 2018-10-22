@@ -85,7 +85,7 @@ class option
     }
 
     template <class U>
-    T value_or(U&& alernative) const
+    T value_or(U&& alternative) const
     {
         if (!empty_)
             return value_;
