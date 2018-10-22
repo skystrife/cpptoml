@@ -2877,7 +2877,8 @@ class parser
         auto end_of_date = std::find_if(it, end, [](char c) {
             return !is_number(c) && c != '-';
         });
-        if (*end_of_date == ' ' && is_number(end_of_date[1])) 
+        if (end_of_date != end && *end_of_date == ' ' && end_of_date + 1 != end
+            && is_number(end_of_date[1]))
             end_of_date++;
         return std::find_if(end_of_date, end, [](char c) {
             return !is_number(c) && c != 'T' && c != 'Z' && c != ':'
@@ -3102,7 +3103,7 @@ class parser
                 throw_parse_exception("Unterminated inline table");
 
             consume_whitespace(it, end);
-            if (*it != '}') {
+            if (it != end && *it != '}') {
                 parse_key_value(it, end, tbl.get());
                 consume_whitespace(it, end);
             }
