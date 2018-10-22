@@ -26,7 +26,7 @@ Alternatives:
 From [the toml-test suite][toml-test]:
 
 ```
-117 passed, 0 failed
+126 passed, 0 failed
 ```
 
 We also currently maintain (but hopefully not indefinitely!) a [fork of the
@@ -35,7 +35,7 @@ clarifications that have been added to the TOML spec more recently than
 toml-test has been updated. We pass every test there.
 
 ```
-137 passed, 0 failed
+148 passed, 0 failed
 ```
 
 # Compilation
