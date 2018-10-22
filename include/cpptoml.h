@@ -3104,7 +3104,8 @@ class parser
                 throw_parse_exception("Unterminated inline table");
 
             consume_whitespace(it, end);
-            if (it != end && *it != '}') {
+            if (it != end && *it != '}')
+            {
                 parse_key_value(it, end, tbl.get());
                 consume_whitespace(it, end);
             }
