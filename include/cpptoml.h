@@ -84,6 +84,11 @@ class option
         return &value_;
     }
 
+    const T& value() const
+    {
+        return value_;
+    }
+
     template <class U>
     T value_or(U&& alternative) const
     {
