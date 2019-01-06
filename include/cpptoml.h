@@ -3025,7 +3025,6 @@ class parser
             case parse_type::OFFSET_DATETIME:
                 return parse_value_array<offset_datetime>(it, end);
             case parse_type::INT:
-                return parse_value_array<int64_t>(it, end);
             case parse_type::FLOAT:
                 return parse_value_array<double>(it, end);
             case parse_type::BOOL:
