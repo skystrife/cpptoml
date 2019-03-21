@@ -1901,6 +1901,9 @@ class parser
             auto it = line_.begin();
             auto end = line_.end();
             consume_whitespace(it, end);
+            if (line_number_ == 1){
+                check_BOM_encode(it, end);
+            }
             if (it == end || *it == '#')
                 continue;
             if (*it == '[')
@@ -3158,6 +3161,13 @@ class parser
                                   + "'---did you forget a '#'?");
     }
 
+    void check_BOM_encode(std::string::iterator& it,
+                            const std::string::iterator& end)
+    {
+        while (it != end && (*it == char(239) || *it == char(187) || *it == char(191) ))
+            ++it;
+    }
+    
     bool is_time(const std::string::iterator& it,
                  const std::string::iterator& end)
     {
