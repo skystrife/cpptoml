@@ -195,6 +195,9 @@ for (const auto& val : *vals)
 the key does not exist, is not of the array type, or contains values that
 are not of type `T`.
 
+If the key does not exist and the method is called with `value_or` function on the returned empty `option`, the containing vector type is zero intialised to the length supplied to `value_or`.
+
+
 For nested arrays, it looks like the following:
 
 ```cpp
