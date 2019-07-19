@@ -5,6 +5,13 @@ set_target_properties(parse PROPERTIES
   CXX_EXTENSIONS OFF
   CXX_STANDARD_REQUIRED YES)
 
+add_executable(override parse_override.cpp)
+target_link_libraries(override cpptoml)
+set_target_properties(override PROPERTIES
+  CXX_STANDARD 11
+  CXX_EXTENSIONS OFF
+  CXX_STANDARD_REQUIRED YES)
+
 add_executable(cpptoml-parser parse_stdin.cpp)
 target_link_libraries(cpptoml-parser cpptoml)
 set_target_properties(cpptoml-parser PROPERTIES

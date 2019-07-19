@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -38,6 +39,20 @@
 
 namespace cpptoml
 {
+enum class parse_type
+{
+    STRING = 1,
+    LOCAL_TIME,
+    LOCAL_DATE,
+    LOCAL_DATETIME,
+    OFFSET_DATETIME,
+    INT,
+    FLOAT,
+    BOOL,
+    ARRAY,
+    INLINE_TABLE
+};
+
 class writer; // forward declaration
 class base;   // forward declaration
 #if defined(CPPTOML_USE_MAP)
@@ -72,6 +87,11 @@ class option
     explicit operator bool() const
     {
         return !empty_;
+    }
+
+    bool is_empty() const
+    {
+        return empty_;
     }
 
     const T& operator*() const
@@ -1878,7 +1898,7 @@ class parser
     /**
      * Parsers are constructed from streams.
      */
-    parser(std::istream& stream) : input_(stream)
+    parser(std::istream& stream, bool allow_merge=false, bool stringify_values=false) : input_(stream), allow_merge_ (allow_merge), stringify_values_ (stringify_values)
     {
         // nothing
     }
@@ -2021,8 +2041,10 @@ class parser
                 || std::any_of(curr_table->begin(), curr_table->end(),
                                is_value))
             {
-                throw_parse_exception("Redefinition of table "
-                                      + full_table_name);
+                if (!allow_merge_)
+                {
+                    throw_parse_exception("Redefinition of table " + full_table_name);
+                }
             }
         }
 
@@ -2164,7 +2186,7 @@ class parser
 
         auto key = parse_key(it, end, key_end, key_part_handler);
 
-        if (curr_table->contains(key))
+        if (!allow_merge_ && curr_table->contains(key))
             throw_parse_exception("Key " + key + " already present");
         if (it == end || *it != '=')
             throw_parse_exception("Value must follow after a '='");
@@ -2268,24 +2290,46 @@ class parser
         return key;
     }
 
-    enum class parse_type
-    {
-        STRING = 1,
-        LOCAL_TIME,
-        LOCAL_DATE,
-        LOCAL_DATETIME,
-        OFFSET_DATETIME,
-        INT,
-        FLOAT,
-        BOOL,
-        ARRAY,
-        INLINE_TABLE
-    };
-
     std::shared_ptr<base> parse_value(std::string::iterator& it,
                                       std::string::iterator& end)
     {
         parse_type type = determine_value_type(it, end);
+
+        if(stringify_values_)
+        {
+            std::string stringified = std::string("\"") + std::string(it,end) + std::string("\"");
+            bool is_value_type = true;
+            switch (type)
+            {
+                case parse_type::STRING:
+                    return parse_string(it, end);
+                case parse_type::LOCAL_TIME:
+                    parse_time(it, end);
+                    break;
+                case parse_type::LOCAL_DATE:
+                case parse_type::LOCAL_DATETIME:
+                case parse_type::OFFSET_DATETIME:
+                    parse_date(it, end);
+                    break;
+                case parse_type::INT:
+                case parse_type::FLOAT:
+                    parse_number(it, end);
+                    break;
+                case parse_type::BOOL:
+                    parse_bool(it, end);
+                    break;
+                default:
+                    is_value_type = false;
+            }
+
+            if (is_value_type)
+            {
+                auto s_it = stringified.begin();
+                auto s_end = stringified.end();
+                return parse_string (s_it, s_end);
+            }
+        }
+
         switch (type)
         {
             case parse_type::STRING:
@@ -3208,6 +3252,8 @@ class parser
     }
 
     std::istream& input_;
+    bool allow_merge_;
+    bool stringify_values_;
     std::string line_;
     std::size_t line_number_ = 0;
 };
@@ -3227,7 +3273,36 @@ inline std::shared_ptr<table> parse_file(const std::string& filename)
 #endif
     if (!file.is_open())
         throw parse_exception{filename + " could not be opened for parsing"};
-    parser p{file};
+    parser p{file, false};
+    return p.parse();
+}
+
+/**
+ * Parse a base and an override TOML and return the root table of the merged result.
+ */
+inline std::shared_ptr<table> parse_base_and_override_files(const std::string& filename, const std::string& user_filename, bool stringify_values = false)
+{
+#if defined(BOOST_NOWIDE_FSTREAM_INCLUDED_HPP)
+    boost::nowide::ifstream file{filename.c_str()};
+    boost::nowide::ifstream user_file{user_filename.c_str()};
+#elif defined(NOWIDE_FSTREAM_INCLUDED_HPP)
+    nowide::ifstream file{filename.c_str()};
+    nowide::ifstream file{user_filename.c_str()};
+#else
+    std::ifstream file{filename};
+    std::ifstream user_file{user_filename};
+#endif
+    std::stringstream combined;
+    if (!file.is_open())
+        throw parse_exception{filename + " could not be opened for parsing"};
+    combined << file.rdbuf();
+    // The userfile is optional
+    if (user_file.is_open())
+    {
+        combined << user_file.rdbuf();
+    }
+
+    parser p{combined, true, stringify_values};
     return p.parse();
 }
 
