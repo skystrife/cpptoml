@@ -2305,8 +2305,6 @@ class parser
                 return parse_array(it, end);
             case parse_type::INLINE_TABLE:
                 return parse_inline_table(it, end);
-            default:
-                throw_parse_exception("Failed to parse value");
         }
     }
 
@@ -3036,8 +3034,6 @@ class parser
             case parse_type::INLINE_TABLE:
                 return parse_object_array<table_array>(
                     &parser::parse_inline_table, '{', it, end);
-            default:
-                throw_parse_exception("Unable to parse array");
         }
     }
 
