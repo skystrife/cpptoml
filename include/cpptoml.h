@@ -1722,7 +1722,7 @@ inline std::shared_ptr<base> array::clone() const
     result->reserve(values_.size());
     for (const auto& ptr : values_)
         result->values_.push_back(ptr->clone());
-    return result;
+    return std::move(result);
 }
 
 inline std::shared_ptr<base> table_array::clone() const
@@ -1731,7 +1731,7 @@ inline std::shared_ptr<base> table_array::clone() const
     result->reserve(array_.size());
     for (const auto& ptr : array_)
         result->array_.push_back(ptr->clone()->as_table());
-    return result;
+    return std::move(result);
 }
 
 inline std::shared_ptr<base> table::clone() const
@@ -1739,7 +1739,7 @@ inline std::shared_ptr<base> table::clone() const
     auto result = make_table();
     for (const auto& pr : map_)
         result->insert(pr.first, pr.second->clone());
-    return result;
+    return std::move(result);
 }
 
 /**
@@ -2710,7 +2710,7 @@ class parser
                 eat_numbers();
                 auto val = parse_int(start, check_it, 8, "0");
                 it = start;
-                return val;
+                return std::move(val);
             }
             else // if (base == 'b')
             {
@@ -2718,7 +2718,7 @@ class parser
                 eat_numbers();
                 auto val = parse_int(start, check_it, 2);
                 it = start;
-                return val;
+                return std::move(val);
             }
         }
 
