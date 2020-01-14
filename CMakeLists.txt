@@ -8,6 +8,7 @@ include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
 include(CMakePushCheckState)
+include(GNUInstallDirs)
 
 cmake_push_check_state()
 
@@ -78,15 +79,15 @@ configure_file(cmake/cpptomlConfig.cmake.in
 install(TARGETS cpptoml
         EXPORT cpptoml-exports)
 install(FILES include/cpptoml.h
-        DESTINATION include)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(EXPORT cpptoml-exports
         FILE cpptomlTargets.cmake
-        DESTINATION lib/cmake/cpptoml)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cpptoml)
 install(FILES
           ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfigVersion.cmake
           ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
         DESTINATION
-          lib/cmake/cpptoml)
+          ${CMAKE_INSTALL_LIBDIR}/cmake/cpptoml)
 
 export(EXPORT cpptoml-exports
        FILE ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlTargets.cmake)
