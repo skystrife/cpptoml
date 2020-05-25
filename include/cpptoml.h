@@ -279,8 +279,8 @@ class value;
 
 template <class T>
 struct valid_value
-    : is_one_of<T, std::string, int64_t, double, bool, local_date, local_time,
-                local_datetime, offset_datetime>
+    : is_one_of<T, std::string, int64_t, int32_t, double, float, bool,
+                local_date, local_time, local_datetime, offset_datetime>
 {
 };
 
@@ -456,9 +456,21 @@ struct base_type_traits<offset_datetime>
 };
 
 template <>
+struct base_type_traits<int32_t>
+{
+    static const base_type type = base_type::INT;
+};
+
+template <>
 struct base_type_traits<int64_t>
 {
     static const base_type type = base_type::INT;
+};
+
+template <>
+struct base_type_traits<float>
+{
+    static const base_type type = base_type::FLOAT;
 };
 
 template <>
@@ -714,6 +726,24 @@ inline std::shared_ptr<value<double>> base::as()
     return nullptr;
 }
 
+// specialization for <float>
+template <>
+inline std::shared_ptr<value<float>> base::as()
+{
+	auto v1 = as<double>();
+	auto v2 = make_value<float>(static_cast<float>(v1->get()));
+	return v2;
+}
+
+// specialization for <int32_t>
+template <>
+inline std::shared_ptr<value<int32_t>> base::as()
+{
+	auto v1 = as<int64_t>();
+	auto v2 = make_value<int32_t>(static_cast<int32_t>(v1->get()));
+	return v2;
+}
+
 template <class T>
 inline std::shared_ptr<const value<T>> base::as() const
 {
@@ -758,6 +788,23 @@ inline std::shared_ptr<const value<double>> base::as() const
 #endif
 
     return nullptr;
+}
+
+template <>
+inline std::shared_ptr<const value<float>> base::as() const
+{
+	auto v1 = as<double>();
+	auto v2 = make_value<const float>(static_cast<float>(v1->get()));
+	return v2;
+}
+
+// specialization for <int32_t>
+template <>
+inline std::shared_ptr<const value<int32_t>> base::as() const
+{
+	auto v1 = as<int64_t>();
+	auto v2 = make_value<const int32_t>(static_cast<int32_t>(v1->get()));
+	return v2;
 }
 
 /**
