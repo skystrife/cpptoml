@@ -1,0 +1,7 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=${prefix}/include
+
+Name: cpptoml
+Description: A header-only library for parsing TOML
+Version: @cpptoml_VERSION@
+Cflags: -I${includedir}
