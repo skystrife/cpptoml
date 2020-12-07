@@ -43,6 +43,11 @@ target_include_directories(cpptoml INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cpptoml.pc.in"
+  "${PROJECT_SOURCE_DIR}/cpptoml.pc"
+  @ONLY)
+
 if (LIBDL_LIBRARY)
   target_link_libraries(cpptoml INTERFACE ${LIBDL_LIBRARY})
 endif()
@@ -87,6 +92,8 @@ install(FILES
           ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlConfig.cmake
         DESTINATION
           lib/cmake/cpptoml)
+install(FILES "${PROJECT_SOURCE_DIR}/cpptoml.pc"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 
 export(EXPORT cpptoml-exports
        FILE ${CMAKE_CURRENT_BINARY_DIR}/cpptoml/cpptomlTargets.cmake)
