@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <map>
 #include <memory>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
